@@ -4,7 +4,7 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
-import { ERAS, SPECIES, STAGES, MODEL_YAW, MODEL_ROLL } from './content.js';
+import { ERAS, SPECIES, STAGES, MODEL_YAW, MODEL_ROLL, UPGRADES, YEARS_PER_MIN } from './content.js';
 import { Sound } from './audio.js';
 import { openAnalysis, ramp } from './analysis.js';
 
@@ -268,7 +268,7 @@ function updateWarp(dt) {
 const sea = new THREE.Scene(), ocean = {};
 let era = ERAS[0], eraIdx = 0, eraT = 0;
 const STAGE_MAX = STAGES.length;
-const pl = { pos: V3(), vel: V3(), yaw: 0, pitch: 0, roll: 0, hp: 100, hpMax: 100, st: 100, charge: 0, xp: 0, level: 1, len: STAGES[0].len, rolled: false, hidden: false, inv: 0, shake: 0, stingCD: 0 };
+const pl = { pos: V3(), vel: V3(), yaw: 0, pitch: 0, roll: 0, hp: 100, hpMax: 100, st: 100, charge: 0, xp: 0, level: 1, len: STAGES[0].len, rolled: false, hidden: false, inv: 0, shake: 0, stingCD: 0, upg: { armor: false, jet: false } };
 const creatures = [], probes = [], colliders = [], vents = [], flocks = [];
 let rows = [], series = [], attacks = [];
 const stats = { rows: 0, eaten: 0, deaths: 0, probes: 0, start: 0, maxLevel: 1 };
@@ -365,6 +365,16 @@ function buildOcean() {
   // 플레이어
   ocean.player = makeModel('trilobite', 1); sea.add(ocean.player);
   ocean.pLight = new THREE.PointLight(0xdffbff, 14, 12); ocean.pLight.position.set(0, 2.4, -1.5); ocean.player.add(ocean.pLight);
+  // 미래 기술 장비 (플레이어 몸길이 1 기준 좌표)
+  const ph = ocean.player.userData.height, glowMat = new THREE.MeshStandardMaterial({ color: 0x56606a, metalness: 0.9, roughness: 0.35, emissive: 0x22ccee, emissiveIntensity: 0.55 });
+  ocean.armor = new THREE.Group();
+  for (const s of [-1, 1]) { const plate = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.018, 0.5), glowMat); plate.position.set(s * 0.17, ph * 0.18, 0.02); plate.rotation.y = s * 0.1; ocean.armor.add(plate); }
+  const ridge = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.016, 0.42), glowMat); ridge.position.set(0, ph * 0.42, -0.02); ocean.armor.add(ridge);
+  const core = new THREE.Mesh(new THREE.SphereGeometry(0.028, 12, 8), new THREE.MeshBasicMaterial({ color: 0x8ff6ff })); core.position.set(0, ph * 0.45, 0.2); ocean.armor.add(core);
+  ocean.jet = new THREE.Group();
+  const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.09, 0.2, 12), new THREE.MeshStandardMaterial({ color: 0x5a6470, metalness: 0.95, roughness: 0.25 })); nozzle.rotation.x = Math.PI / 2; nozzle.position.set(0, 0, -0.5); nozzle.scale.setScalar(0.7); ocean.jet.add(nozzle);
+  ocean.jetGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: radialTex('rgba(120,230,255,1)', 'rgba(120,230,255,0)'), blending: THREE.AdditiveBlending, depthWrite: false })); ocean.jetGlow.position.set(0, 0, -0.62); ocean.jetGlow.scale.setScalar(0.25); ocean.jet.add(ocean.jetGlow);
+  ocean.player.add(ocean.armor, ocean.jet); ocean.armor.visible = ocean.jet.visible = false;
   ocean.shadow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: radialTex('rgba(0,0,0,0.55)', 'rgba(0,0,0,0)'), transparent: true, depthWrite: false }));
   ocean.shadow.rotation.x = -Math.PI / 2; sea.add(ocean.shadow);
   // 거품·충격 파티클
@@ -694,29 +704,40 @@ addEventListener('keydown', e => {
   if (e.code === 'Space') e.preventDefault();
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
-if (!IS_TOUCH) {
-  canvas.addEventListener('mousemove', e => { ptr.x = e.clientX / innerWidth * 2 - 1; ptr.y = e.clientY / innerHeight * 2 - 1; ptr.in = true; });
-  canvas.addEventListener('mouseleave', () => { ptr.in = false; });
-  canvas.addEventListener('mousedown', e => { if (e.button === 0) ptr.L = true; if (e.button === 2) ptr.R = true; });
-  addEventListener('mouseup', e => { if (e.button === 0) ptr.L = false; if (e.button === 2) ptr.R = false; });
-}
 addEventListener('contextmenu', e => e.preventDefault());
-const joy = { id: null, ox: 0, oy: 0, x: 0, y: 0 }, JOY_R = 64;
+// 왼쪽 화면 = 이동 조이스틱, 오른쪽 화면 = 시점 돌리기 (마우스는 끌어서 시점 돌리기)
+const joy = { id: null, ox: 0, oy: 0, x: 0, y: 0, full: 0 }, JOY_R = 64;
+const look = { id: null, x: 0, y: 0 };
+const cam = { yaw: 0.6, pitch: -0.18, last: -99 };
+const JOY_HOME = () => ({ x: Math.max(110, innerWidth * 0.13), y: innerHeight - Math.max(120, innerHeight * 0.2) });
+function joyShow(x, y) { const el = $('joy'); el.style.left = x + 'px'; el.style.top = y + 'px'; }
 canvas.addEventListener('pointerdown', e => {
   if (!$('dialog').classList.contains('hidden')) { nextLine(); return; }
-  if (e.pointerType === 'mouse' && !IS_TOUCH) return;
-  if (joy.id !== null) return;
-  joy.id = e.pointerId; joy.ox = e.clientX; joy.oy = e.clientY; joy.x = joy.y = 0; canvas.setPointerCapture(e.pointerId);
-  const el = $('joy'); el.style.left = joy.ox + 'px'; el.style.top = joy.oy + 'px'; el.classList.add('on'); $('joyhint').classList.add('hidden'); el.firstElementChild.style.transform = '';
+  const leftSide = e.clientX < innerWidth * 0.45 && e.pointerType !== 'mouse';
+  if (leftSide && joy.id === null) {
+    joy.id = e.pointerId; joy.ox = e.clientX; joy.oy = e.clientY; joy.x = joy.y = 0; joy.full = 0;
+    joyShow(joy.ox, joy.oy); $('joy').classList.add('on'); $('joy').firstElementChild.style.transform = '';
+  } else if (look.id === null) { look.id = e.pointerId; look.x = e.clientX; look.y = e.clientY; }
+  try { canvas.setPointerCapture(e.pointerId); } catch (_) { }
 });
 canvas.addEventListener('pointermove', e => {
-  if (e.pointerId !== joy.id) return;
-  let dx = e.clientX - joy.ox, dy = e.clientY - joy.oy; const L = Math.hypot(dx, dy);
-  if (L > JOY_R) { dx *= JOY_R / L; dy *= JOY_R / L; }
-  joy.x = dx / JOY_R; joy.y = dy / JOY_R; $('joy').firstElementChild.style.transform = `translate(${dx}px,${dy}px)`;
+  if (e.pointerId === joy.id) {
+    let dx = e.clientX - joy.ox, dy = e.clientY - joy.oy; const L = Math.hypot(dx, dy);
+    if (L > JOY_R) { dx *= JOY_R / L; dy *= JOY_R / L; }
+    joy.x = dx / JOY_R; joy.y = dy / JOY_R; $('joy').firstElementChild.style.transform = `translate(${dx}px,${dy}px)`;
+  } else if (e.pointerId === look.id) {
+    const s = e.pointerType === 'mouse' ? 0.005 : 0.0065;
+    cam.yaw -= (e.clientX - look.x) * s; cam.pitch = clamp(cam.pitch - (e.clientY - look.y) * s * 0.8, -1.1, 0.75);
+    look.x = e.clientX; look.y = e.clientY; cam.last = G.t;
+  }
 });
-const joyEnd = e => { if (e.pointerId !== joy.id) return; joy.id = null; joy.x = joy.y = 0; $('joy').classList.remove('on'); };
-canvas.addEventListener('pointerup', joyEnd); canvas.addEventListener('pointercancel', joyEnd);
+const ptrEnd = e => {
+  if (e.pointerId === joy.id) { joy.id = null; joy.x = joy.y = 0; const h = JOY_HOME(); joyShow(h.x, h.y); $('joy').classList.remove('on'); $('joy').firstElementChild.style.transform = ''; }
+  if (e.pointerId === look.id) look.id = null;
+};
+canvas.addEventListener('pointerup', ptrEnd); canvas.addEventListener('pointercancel', ptrEnd);
+addEventListener('resize', () => { if (joy.id === null) { const h = JOY_HOME(); joyShow(h.x, h.y); } });
+{ const h = JOY_HOME(); joyShow(h.x, h.y); }
 function holdButton(el, key) {
   const on = e => { e.preventDefault(); ptr[key] = true; el.classList.add('on'); try { el.setPointerCapture(e.pointerId); } catch (_) { } };
   const off = () => { ptr[key] = false; el.classList.remove('on'); };
@@ -732,28 +753,34 @@ function teacherComplete() { pl.charge = 100; probes.forEach(pb => { if (!pb.got
 /* ---------------- 플레이어 ---------------- */
 const fwd = new THREE.Vector3(0, 0, 1);
 function updatePlayer(dt) {
-  let yi = 0, pi = 0, mag = 0;
-  if (keys.KeyA || keys.ArrowLeft) yi += 1; if (keys.KeyD || keys.ArrowRight) yi -= 1;
-  if (keys.KeyW || keys.ArrowUp) pi += 1; if (keys.KeyS || keys.ArrowDown) pi -= 1;
-  if (yi || pi) mag = 1;
-  else if (joy.id !== null) {
-    mag = clamp(Math.hypot(joy.x, joy.y), 0, 1);
-    if (mag > 0.12) { yi = -clamp(joy.x * 1.35, -1, 1); pi = -clamp(joy.y * 1.35, -1, 1); }
-  } else if (ptr.in) {
-    const dx = ptr.x, dy = ptr.y; mag = clamp(Math.hypot(dx * 1.4, dy * 1.6), 0, 1);
-    if (Math.abs(dx) > 0.06) yi = -clamp((dx - Math.sign(dx) * 0.06) * 2, -1, 1);
-    if (Math.abs(dy) > 0.08) pi = -clamp((dy - Math.sign(dy) * 0.08) * 2, -1, 1);
-  }
+  // 이동 입력 (조이스틱 또는 WASD) — 카메라가 보는 방향 기준
+  let jx = 0, jy = 0;
+  if (keys.KeyA || keys.ArrowLeft) jx -= 1; if (keys.KeyD || keys.ArrowRight) jx += 1;
+  if (keys.KeyW || keys.ArrowUp) jy -= 1; if (keys.KeyS || keys.ArrowDown) jy += 1;
+  if (keys.KeyQ) cam.pitch = clamp(cam.pitch + dt * 1.2, -1.1, 0.75); if (keys.KeyZ) cam.pitch = clamp(cam.pitch - dt * 1.2, -1.1, 0.75);
+  if (!jx && !jy && joy.id !== null) { jx = joy.x; jy = joy.y; }
+  let mag = clamp(Math.hypot(jx, jy), 0, 1); if (mag < 0.12) mag = 0;
+  const cf = new THREE.Vector3(Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch));
+  const cr = new THREE.Vector3(-Math.cos(cam.yaw), 0, Math.sin(cam.yaw));
+  // 조이스틱을 끝까지 밀고 있으면 자동 가속
+  joy.full = mag > 0.9 && joy.id !== null ? joy.full + dt : 0;
   pl.rolled = (keys.KeyE || ptr.R) && pl.st > 2;
-  const boost = (keys.Space || ptr.L || keys.ShiftLeft) && pl.st > 1 && !pl.rolled;
+  const jet = pl.upg.jet, boost = (keys.Space || ptr.L || keys.ShiftLeft || joy.full > 0.6) && pl.st > 1 && !pl.rolled;
   if (boost && !pl.boosting) sfx('dash', 0.5); pl.boosting = boost;
-  pl.st = clamp(pl.st + (boost ? -24 : pl.rolled ? -9 : 16) * dt, 0, 100);
-  pl.yaw += yi * 2.5 * dt;
-  pl.pitch = lerp(pl.pitch, pi * 0.85, 1 - Math.exp(-dt * (pi ? 4 : 2)));
-  pl.roll = lerp(pl.roll, -yi * 0.5, 1 - Math.exp(-dt * 5));
+  pl.st = clamp(pl.st + (boost ? -24 * (jet ? 0.7 : 1) : pl.rolled ? -9 : 16) * dt, 0, 100);
+  if (mag > 0) {
+    const d = V3().addScaledVector(cf, -jy).addScaledVector(cr, jx).normalize();
+    const ty = Math.atan2(d.x, d.z), tp = clamp(Math.asin(clamp(d.y, -1, 1)), -0.95, 0.95);
+    let dy = ty - pl.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+    pl.yaw += clamp(dy, -4.5 * dt, 4.5 * dt);
+    pl.pitch = lerp(pl.pitch, tp, 1 - Math.exp(-dt * 4)); pl.roll = lerp(pl.roll, -clamp(dy, -0.6, 0.6), 1 - Math.exp(-dt * 5));
+  } else { pl.pitch = lerp(pl.pitch, 0, 1 - Math.exp(-dt * 1.5)); pl.roll = lerp(pl.roll, 0, 1 - Math.exp(-dt * 4)); }
+  if (boost && mag === 0) mag = 1; // 돌진 버튼만 눌러도 앞으로 돌진
+  // 시점을 한동안 안 돌리면 카메라가 천천히 등 뒤로 돌아와요
+  if (G.t - cam.last > 2.5 && mag > 0.2) { let dc = pl.yaw - cam.yaw; dc = Math.atan2(Math.sin(dc), Math.cos(dc)); cam.yaw += dc * (1 - Math.exp(-dt * 0.8)); }
   fwd.set(Math.sin(pl.yaw) * Math.cos(pl.pitch), Math.sin(pl.pitch), Math.cos(pl.yaw) * Math.cos(pl.pitch));
-  const base = 4.2 + pl.len * 1.1, cruise = 0.38 + 0.62 * mag;
-  const speed = pl.rolled ? 0 : base * (boost ? 2.2 : cruise);
+  const base = 4.2 + pl.len * 1.1;
+  const speed = pl.rolled ? 0 : base * (boost ? (jet ? 2.85 : 2.2) : mag);
   pl.vel.lerp(fwd.clone().multiplyScalar(speed), 1 - Math.exp(-dt * (pl.rolled ? 1.2 : 3.2)));
   pl.pos.addScaledVector(pl.vel, dt);
   if (boost && Math.random() < 0.4) burst(V3().copy(pl.pos).addScaledVector(fwd, -pl.len * 0.6), 1, 1, 1);
@@ -775,12 +802,14 @@ function updatePlayer(dt) {
   w.rotation.x = lerp(w.rotation.x, roll * -1.1, 1 - Math.exp(-dt * 8)); w.rotation.z = Math.sin(G.t * 9) * 0.04 * (1 - roll);
   o.scale.setScalar(pl.len * (1 - roll * 0.15) * (pl.inv > 0 && Math.sin(G.t * 40) > 0 ? 1.04 : 1));
   ocean.pLight.distance = 10 + pl.len * 3;
+  if (pl.upg.jet) ocean.jetGlow.scale.setScalar(pl.boosting ? 0.55 + Math.random() * 0.2 : 0.22);
   const fr = floorY(pl.pos.x, pl.pos.z), hgt = pl.pos.y - fr;
   ocean.shadow.position.set(pl.pos.x, fr + 0.06, pl.pos.z); ocean.shadow.scale.setScalar(pl.len * 2.2 * (1 + hgt * 0.05)); ocean.shadow.material.opacity = clamp(1 - hgt / 14, 0, 1);
   if (pl.hp <= 0) respawn();
 }
 function hurt(dmg, src, quiet) {
   if (dmg <= 0 || G.respawning) return;
+  if (pl.upg.armor) dmg *= 0.8;
   pl.hp -= dmg;
   if (!quiet) { pl.inv = 1.0; pl.shake = 0.7; flash('rgba(255,40,60,.45)', 450); floatText('−' + Math.round(dmg), pl.pos, '#ff5b6b', true); }
   else if (Math.random() < dt60()) floatText('−' + Math.max(1, Math.round(dmg * 30)), pl.pos, '#ffb547');
@@ -810,13 +839,14 @@ async function respawn() {
   G.playing = true; G.respawning = false;
 }
 function eatCheck() {
-  const r0 = pl.len * 0.55 + 0.45;
+  const r0 = pl.len * 0.6 + 0.6, pull = (r0 * 2.6) ** 2;
   for (const f of ocean.food) {
+    if (f.p.distanceToSquared(pl.pos) < pull) f.p.lerp(pl.pos, 1 - Math.exp(-_dt * 4)); // 가까운 먹이는 빨려 들어와요
     if (f.p.distanceToSquared(pl.pos) < r0 * r0) { const big = f.kind === 'worm'; stats.eaten++; sfx('eat'); gainXP(big ? 4 : 2, big ? 4 : 2, f.p); respawnFood(f); }
   }
   for (const c of creatures) {
     if (c.dead || !c.edible) continue;
-    const r = pl.len * 0.55 + c.len * 0.35;
+    const r = pl.len * 0.65 + c.len * 0.4;
     if (c.pos.distanceToSquared(pl.pos) < r * r) {
       const xp = Math.round(6 + c.len * 9); stats.eaten++; sfx('eat', 1, 0.7); burst(c.pos, 14, 3); gainXP(xp, xp * 0.7, c.pos); c.kill();
     }
@@ -833,17 +863,19 @@ function discover(c) {
 }
 
 /* ---------------- 바다 장면 설정 ---------------- */
-function setupEra(i) {
+function setupEra(i, keep) {
   eraIdx = i; era = ERAS[i]; eraT = 0;
   sea.fog.color.set(era.fog); sea.fog.density = era.fogD; sea.background.set(era.fog);
   ocean.hemi.color.set(era.hemiSky); ocean.hemi.groundColor.set(era.hemiGround); ocean.sun.color.set(era.sun); ocean.surf.material.color.set(era.surface);
   const p = ocean.floorGeo.attributes.position, col = ocean.floorGeo.attributes.color, [tr, tg, tb] = era.floorTint;
   for (let k = 0; k < p.count; k++) { const d = smooth(-8, -62, p.getY(k)), v = 1 - d * 0.55; col.setXYZ(k, tr * v, tg * v, tb * v * (1 + d * 0.15)); }
   col.needsUpdate = true;
-  // 새 시대 = 다시 아기 삼엽충
-  pl.level = 1; pl.xp = 0; pl.len = STAGES[0].len; pl.hpMax = STAGES[0].hp; pl.hp = pl.hpMax; pl.st = 100; pl.charge = 0; pl.inv = 2;
+  // 성장은 타임머신의 생체 데이터로 다음 시대에 이어져요
+  if (!keep) { pl.level = 1; pl.xp = 0; pl.len = STAGES[0].len; }
+  pl.hpMax = STAGES[pl.level - 1].hp; pl.hp = pl.hpMax; pl.st = 100; pl.charge = 0; pl.inv = 2;
+  pl.upg.armor = i >= 1; pl.upg.jet = i >= 2; ocean.armor.visible = pl.upg.armor; ocean.jet.visible = pl.upg.jet;
   pl.pos.set(HOME.x + 6, HOME.y + 4, HOME.z + 6); pl.vel.set(0, 0, 0); pl.yaw = 0.6; pl.pitch = 0;
-  rows = []; series = []; attacks = []; resetGrid(); aiStats = { food: 0, danger: 0, vent: 0 }; aiFood = null; aiT = 6; G.aiWarn = null;
+  radioQ.length = 0; rows = []; series = []; attacks = []; resetGrid(); aiStats = { food: 0, danger: 0, vent: 0 }; aiFood = null; aiT = 6; G.aiWarn = null;
   probes.forEach(pb => sea.remove(pb.obj)); probes.length = 0; era.probes.forEach(([x, z], k) => probes.push(makeProbe(x, z, k)));
   spawnCreatures(); buildVents();
   ocean.food.forEach(f => respawnFood(f));
@@ -918,13 +950,12 @@ function updateOcean(dt) {
   updateMarkers(); updateLabels();
 }
 function updateCamera(dt) {
-  const back = 3.0 + pl.len * 2.4, up = 1.2 + pl.len * 0.9;
-  const flat = new THREE.Vector3(Math.sin(pl.yaw), 0, Math.cos(pl.yaw));
-  const want = V3().copy(pl.pos).addScaledVector(flat, -back).add(new THREE.Vector3(0, up - pl.pitch * 2.4, 0));
+  const back = 3.2 + pl.len * 2.4, cf = new THREE.Vector3(Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch));
+  const want = V3().copy(pl.pos).addScaledVector(cf, -back).add(new THREE.Vector3(0, 0.8 + pl.len * 0.6, 0));
   want.y = Math.max(want.y, floorY(want.x, want.z) + 0.8); want.y = Math.min(want.y, -0.6);
-  camera.position.lerp(want, 1 - Math.exp(-dt * 5));
+  camera.position.lerp(want, 1 - Math.exp(-dt * 8));
   if (pl.shake > 0) { pl.shake -= dt; camera.position.x += (Math.random() - 0.5) * pl.shake * 0.7; camera.position.y += (Math.random() - 0.5) * pl.shake * 0.7; }
-  camera.lookAt(V3().copy(pl.pos).addScaledVector(fwd, 2.5 + pl.len));
+  camera.lookAt(V3().copy(pl.pos).addScaledVector(cf, 2 + pl.len).add(new THREE.Vector3(0, 0.4 + pl.len * 0.2, 0)));
 }
 
 /* =========================================================
@@ -940,7 +971,7 @@ const TOTAL_SPECIES = () => Object.keys(era.roster).length;
 function updateHUD() {
   const e = G.e; if (!e) return;
   for (const [k, , , d, f] of SENS) { const el = $('sr-' + k), v = e[k]; el.querySelector('.v span').textContent = k === 'co2' ? fmt(v) : v.toFixed(d); el.className = 'srow ' + f(v); }
-  const mm = Math.floor(eraT), ss = Math.floor((eraT - mm) * 60); $('s-time').textContent = String(mm).padStart(2, '0') + ':' + String(ss).padStart(2, '0');
+  const mm = Math.floor(eraT), ss = Math.floor((eraT - mm) * 60); $('s-time').textContent = era.vents ? `관측 ${fmt(eraT * YEARS_PER_MIN)}년` : String(mm).padStart(2, '0') + ':' + String(ss).padStart(2, '0');
   const got = probes.filter(p => p.got).length, acc = accuracy();
   $('v-charge').textContent = Math.floor(pl.charge) + '%'; $('o-charge').querySelector('i').style.width = pl.charge + '%'; $('o-charge').classList.toggle('done', pl.charge >= 100);
   $('v-probe').textContent = got + ' / 5'; $('o-probe').querySelector('i').style.width = got * 20 + '%'; $('o-probe').classList.toggle('done', got === 5);
@@ -1082,7 +1113,7 @@ function goAnalysis() {
     droneRecords: Math.round(eraT * 60 * 10 * 32 * 12), sfx: n => sfx(n),
     onDone: async () => {
       $('hud').classList.remove('dim');
-      if (eraIdx < 2) { await doWarp(ERAS[eraIdx + 1].jump, 'TEMPORAL JUMP · 좌표 재계산', 0x5ff2ff); startEra(eraIdx + 1); }
+      if (eraIdx < 2) { await doWarp(ERAS[eraIdx + 1].jump, 'TEMPORAL JUMP · 생체 데이터 저장 완료', 0x5ff2ff); startEra(eraIdx + 1, true); }
       else { await doWarp('+252,000,000', 'RETURN · 귀환 좌표 ' + frags.join('.'), 0xffd66b); returnToLab(); }
     },
   });
@@ -1095,14 +1126,19 @@ async function doWarp(big, small, col) {
   $('wp-b').textContent = big; flash('#fff', 900); await sleep(150);
   $('warptxt').classList.add('hidden'); camera.fov = 62; camera.updateProjectionMatrix(); camera.rotation.set(0, 0, 0);
 }
-async function startEra(i) {
-  setupEra(i); G.mode = 'ocean'; active = sea; G.playing = false; G.warned = false;
+async function startEra(i, keep) {
+  setupEra(i, keep); G.mode = 'ocean'; active = sea; G.playing = false; G.warned = false;
   $('hud').classList.remove('hidden'); mapVar = 0; drawMinimap(true); sound.music(era.bgm, 2.5);
   for (let k = 0; k < 40; k++) updateCamera(0.05);
   G.e = env(pl.pos.x, pl.pos.y, pl.pos.z, era, 0); updateHUD();
-  banner(era.jump + ' YEARS', era.name, era.sub); await sleep(1800);
-  const howto = IS_TOUCH ? '조작법\n· 화면을 누르고 끌기: 그 방향으로 헤엄 (많이 끌수록 빠름)\n· 노란 버튼: 돌진   · 파란 버튼: 몸 말기 방어   · 왼쪽 지도 탭: 지도 종류 바꾸기'
-    : '조작법\n· 마우스가 가리키는 방향으로 헤엄 (화면 가장자리로 갈수록 빠름, WASD도 가능)\n· 클릭/스페이스: 돌진   · 오른쪽 클릭/E: 몸 말기 방어   · M: 지도 종류 바꾸기';
+  banner(era.jump + ' YEARS', era.name, keep ? `생체 데이터 복원 · ${pl.level}단계 ${STAGES[pl.level - 1].name}${UPGRADES[i] ? ' · 새 장비: ' + UPGRADES[i].name : ''}` : era.sub); await sleep(1800);
+  const howto = IS_TOUCH ? `조작법
+· 왼쪽 화면: 조이스틱으로 이동 (끝까지 밀고 있으면 자동 가속)
+· 오른쪽 화면 끌기: 시점 돌리기 (보는 쪽으로 헤엄쳐요)
+· 노란 버튼: 돌진   · 파란 버튼: 몸 말기 방어   · 지도 탭: 지도 종류 바꾸기`
+    : `조작법
+· WASD/방향키: 이동   · 마우스 끌기: 시점 돌리기 (보는 쪽으로 헤엄쳐요)
+· 스페이스/Shift: 돌진   · E: 몸 말기 방어   · M: 지도 종류 바꾸기`;
   await say(era.intro.concat(i === 0 ? [{ who: '시스템', text: howto }] : []));
   G.playing = true;
 }
@@ -1192,7 +1228,7 @@ $('end-restart').onclick = () => location.reload();
     const wake = async () => { try { await navigator.wakeLock?.request('screen'); } catch (_) { } };
     wake(); document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') wake(); });
     const e = +P.get('era');
-    if (e >= 1 && e <= 3) { await doWarp(ERAS[e - 1].jump, 'TEACHER MODE', 0x5ff2ff); startEra(e - 1); }
+    if (e >= 1 && e <= 3) { pl.level = [1, 3, 5][e - 1]; pl.xp = STAGES[pl.level - 1].xp; pl.len = STAGES[pl.level - 1].len; await doWarp(ERAS[e - 1].jump, 'TEACHER MODE', 0x5ff2ff); startEra(e - 1, e > 1); }
     else if (P.has('skip')) { await doWarp(ERAS[0].jump, 'TEMPORAL COORDINATE ERROR', 0xff6b8a); startEra(0); }
     else labIntro();
   };

@@ -2,7 +2,7 @@
    빅데이터 분석실 — 단계별 안내형
    ① 내가 모은 빅데이터(3V)  ② 시대별 그래프 1개 + 안내 질문  ③ 드론 대기 기록  ④ 귀환 좌표 조각
    ========================================================= */
-import { ATMOS } from './content.js';
+import { ATMOS, YEARS_PER_MIN } from './content.js';
 
 const $ = id => document.getElementById(id);
 const fmt = n => Math.round(n).toLocaleString('ko-KR');
@@ -135,32 +135,66 @@ function regress(xs, ys) {
   for (let i = 0; i < n; i++) { sxy += (xs[i] - mx) * (ys[i] - my); sxx += (xs[i] - mx) ** 2; }
   const b = sxx ? sxy / sxx : 0; return { a: my - b * mx, b };
 }
-function lines() {
-  $('chartbox').innerHTML = '<canvas id="ln1"></canvas><canvas id="ln2"></canvas><canvas id="ln3"></canvas>';
-  const draw = () => {
-    const S = A.series, ts = S.map(s => s.t), tEnd = Math.max(A.eraT * 2.4, 6);
-    line($('ln1'), S, 'avgT', '해역 평균 수온 (℃)', '#ff8a5b', tEnd);
-    line($('ln2'), S, 'avgO2', '해역 평균 용존 산소 (mg/L)', '#5ff2ff', tEnd, 2, '삼엽충 생존 한계 2 mg/L');
-    line($('ln3'), S, 'co2', 'CO₂ (ppm)', '#c9a6ff', tEnd);
-  };
-  draw(); A.redraw = draw;
+const yrs = t => t * YEARS_PER_MIN;
+function fmtYears(y) { y = Math.max(1000, Math.round(y / 1000) * 1000); return y >= 10000 ? `약 ${(y / 10000).toFixed(1).replace('.0', '')}만 년` : `약 ${y / 1000}천 년`; }
+// 선형 회귀 + 평균 예측의 오차 범위(95%)
+function fitBand(S, key) {
+  const xs = S.map(s => s.t), ys = S.map(s => s[key]), n = xs.length, r = regress(xs, ys);
+  const mx = xs.reduce((p, q) => p + q, 0) / n; let sse = 0, sxx = 0;
+  for (let i = 0; i < n; i++) { sse += (ys[i] - (r.a + r.b * xs[i])) ** 2; sxx += (xs[i] - mx) ** 2; }
+  const s = Math.sqrt(sse / Math.max(1, n - 2));
+  return { ...r, half: t => 2 * s * Math.sqrt(1 / n + (t - mx) ** 2 / Math.max(1e-6, sxx)) };
 }
-function line(cv, S, key, title, col, tEnd, thr, thrLabel) {
+function crossInfo(S) {
+  const f = fitBand(S, 'avgO2'); if (f.b >= 0) return null;
+  const tc = (2 - f.a) / f.b; let lo = null, hi = null;
+  for (let t = S[S.length - 1].t; t < tc * 4 + 10; t += 0.02) { const m = f.a + f.b * t, h = f.half(t); if (lo === null && m - h <= 2) lo = t; if (hi === null && m + h <= 2) { hi = t; break; } }
+  return { tc, lo, hi };
+}
+function lines() {
+  $('chartbox').innerHTML = `<canvas id="ln1"></canvas><canvas id="ln2"></canvas><canvas id="ln3"></canvas>
+    <div class="slider">예측에 쓸 관측 기간 <input type="range" id="ln-n" min="15" max="100" value="100"><b id="ln-nv" class="mono"></b></div>
+    <div id="ln-pred" class="predbox"></div>`;
+  const draw = () => {
+    const k = +$('ln-n').value / 100, all = A.series, used = all.slice(0, Math.max(4, Math.round(all.length * k)));
+    const full = crossInfo(all), tEnd = Math.min(Math.max(A.eraT * 2.6, 6, full ? full.tc * 1.2 : 0), A.eraT * 8 + 2);
+    $('ln-nv').textContent = `${fmt(yrs(used[used.length - 1].t))}년 (${used.length}회)`;
+    line($('ln1'), all, used, 'avgT', '해역 평균 수온 (℃)', '#ff8a5b', tEnd);
+    line($('ln2'), all, used, 'avgO2', '해역 평균 용존 산소 (mg/L)', '#5ff2ff', tEnd, 2, '삼엽충 생존 한계 2 mg/L');
+    line($('ln3'), all, used, 'co2', 'CO₂ (ppm)', '#c9a6ff', tEnd);
+    const c = crossInfo(used), now = A.eraT;
+    $('ln-pred').innerHTML = c ? `<b>예측</b> · 지금부터 <b>${fmtYears(yrs(c.tc - now))} 뒤</b> 바다 산소가 생존 한계 아래로 떨어져요.<br>
+      <span class="dim">오차 범위: ${c.lo !== null ? fmtYears(yrs(Math.max(0, c.lo - now))) : '?'} ~ ${c.hi !== null ? fmtYears(yrs(c.hi - now)) : '알 수 없음(너무 넓음)'} 뒤</span>` : '추세를 찾기에 데이터가 부족해요.';
+  };
+  $('ln-n').oninput = draw; draw(); A.redraw = draw;
+}
+function line(cv, all, used, key, title, col, tEnd, thr, thrLabel) {
   const g = sizeCanvas(cv, 0.3), W = cv.clientWidth, H = W * 0.3, L = 52, R = 12, T = 22, B = 22;
-  const xs = S.map(s => s.t), ys = S.map(s => s[key]), reg = regress(xs, ys);
-  let y0 = Math.min(...ys, reg.a + reg.b * tEnd), y1 = Math.max(...ys, reg.a + reg.b * tEnd); if (thr !== undefined) y0 = Math.min(y0, thr - 0.3);
+  const f = fitBand(used, key), tl = used[used.length - 1].t, ys = all.map(s => s[key]);
+  let y0 = Math.min(...ys, f.a + f.b * tEnd), y1 = Math.max(...ys, f.a + f.b * tEnd); if (thr !== undefined) y0 = Math.min(y0, thr - 0.3); if (thr !== undefined) y0 = Math.max(y0, 0.3);
   const p = (y1 - y0) * 0.12 || 1; y0 -= p; y1 += p;
-  const X = t => L + t / tEnd * (W - L - R), Y = v => T + (1 - (v - y0) / (y1 - y0)) * (H - T - B);
+  const X = t => L + t / tEnd * (W - L - R), Y = v => T + (1 - (clamp(v, y0, y1) - y0) / (y1 - y0)) * (H - T - B);
   g.fillStyle = '#e8f6fb'; g.font = '700 12.5px "Noto Sans KR"'; g.textAlign = 'left'; g.fillText(title, L, 14);
   g.fillStyle = '#8fb3c2'; g.font = '11px "JetBrains Mono"'; g.textAlign = 'right';
   [y0 + p, (y0 + y1) / 2, y1 - p].forEach(v => { g.fillText(v >= 100 ? fmt(v) : v.toFixed(1), L - 6, Y(v) + 4); g.strokeStyle = 'rgba(255,255,255,.06)'; g.beginPath(); g.moveTo(L, Y(v)); g.lineTo(W - R, Y(v)); g.stroke(); });
-  g.textAlign = 'center'; for (let t = 0; t <= tEnd; t += Math.ceil(tEnd / 6)) g.fillText(t + '분', X(t), H - 6);
-  if (thr !== undefined) { g.setLineDash([5, 4]); g.strokeStyle = '#ff4f5e'; g.beginPath(); g.moveTo(L, Y(thr)); g.lineTo(W - R, Y(thr)); g.stroke(); g.setLineDash([]); g.fillStyle = '#ff8a95'; g.textAlign = 'left'; g.font = '11px "Noto Sans KR"'; g.fillText(thrLabel, L + 6, Y(thr) - 5); }
-  g.strokeStyle = col; g.lineWidth = 2.5; g.beginPath(); S.forEach((s, i) => { const x = X(s.t), y = Y(s[key]); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke();
-  const tn = A.eraT; g.setLineDash([6, 5]); g.globalAlpha = 0.8; g.beginPath(); g.moveTo(X(tn), Y(reg.a + reg.b * tn)); g.lineTo(X(tEnd), Y(reg.a + reg.b * tEnd)); g.stroke(); g.setLineDash([]); g.globalAlpha = 1;
-  g.strokeStyle = 'rgba(255,255,255,.4)'; g.lineWidth = 1; g.beginPath(); g.moveTo(X(tn), T); g.lineTo(X(tn), H - B); g.stroke();
-  g.fillStyle = '#fff'; g.font = '11px "Noto Sans KR"'; g.textAlign = 'left'; g.fillText('지금', X(tn) + 4, T + 10);
-  if (thr !== undefined && reg.b < 0) { const tc = (thr - reg.a) / reg.b; if (tc < tEnd) { g.fillStyle = '#ff4f5e'; g.beginPath(); g.arc(X(tc), Y(thr), 6, 0, 7); g.fill(); } }
+  g.textAlign = 'center'; g.font = '11px "Noto Sans KR"';
+  const stepY = [5000, 10000, 20000, 50000].find(s => yrs(tEnd) / s <= 6) || 100000;
+  for (let y = 0; y <= yrs(tEnd); y += stepY) g.fillText(y === 0 ? '0' : y >= 10000 ? y / 10000 + '만 년' : y / 1000 + '천 년', X(y / YEARS_PER_MIN), H - 6);
+  if (thr !== undefined) { g.setLineDash([5, 4]); g.strokeStyle = '#ff4f5e'; g.beginPath(); g.moveTo(L, Y(thr)); g.lineTo(W - R, Y(thr)); g.stroke(); g.setLineDash([]); g.fillStyle = '#ff8a95'; g.textAlign = 'left'; g.fillText(thrLabel, L + 6, Y(thr) - 5); }
+  // 오차 범위 띠
+  if (thr !== undefined) {
+    g.fillStyle = 'rgba(95,242,255,.16)'; g.beginPath();
+    for (let t = tl; t <= tEnd; t += tEnd / 60) g.lineTo(X(t), Y(f.a + f.b * t + f.half(t)));
+    for (let t = tEnd; t >= tl; t -= tEnd / 60) g.lineTo(X(t), Y(f.a + f.b * t - f.half(t)));
+    g.closePath(); g.fill();
+  }
+  // 관측값: 예측에 쓴 부분은 진하게, 안 쓴 부분은 흐리게
+  const path = (arr, style, w) => { g.strokeStyle = style; g.lineWidth = w; g.beginPath(); arr.forEach((s, i) => { const x = X(s.t), y = Y(s[key]); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); };
+  path(all, 'rgba(255,255,255,.18)', 1.5); path(used, col, 2.5);
+  g.strokeStyle = col; g.setLineDash([6, 5]); g.globalAlpha = 0.85; g.lineWidth = 2; g.beginPath(); g.moveTo(X(tl), Y(f.a + f.b * tl)); g.lineTo(X(tEnd), Y(f.a + f.b * tEnd)); g.stroke(); g.setLineDash([]); g.globalAlpha = 1;
+  const tn = A.eraT; g.strokeStyle = 'rgba(255,255,255,.4)'; g.lineWidth = 1; g.beginPath(); g.moveTo(X(tn), T); g.lineTo(X(tn), H - B); g.stroke();
+  g.fillStyle = '#fff'; g.textAlign = 'left'; g.fillText('지금', X(tn) + 4, T + 10);
+  if (thr !== undefined && f.b < 0) { const tc = (thr - f.a) / f.b; if (tc < tEnd) { g.fillStyle = '#ff4f5e'; g.beginPath(); g.arc(X(tc), Y(thr), 6, 0, 7); g.fill(); } }
 }
 
 const DYN = {
@@ -173,12 +207,13 @@ const DYN = {
     };
   },
   o2Cross() {
-    const reg = regress(A.series.map(s => s.t), A.series.map(s => s.avgO2));
-    let k = reg.b < 0 ? Math.round((2 - reg.a) / reg.b - A.eraT) : 6; k = Math.max(1, k);
-    const opts = [...new Set([k, k + 4, k + 9, k > 3 ? k - 3 : k + 14])].sort(() => Math.random() - 0.5);
+    const c = crossInfo(A.series), k = c ? Math.max(1000, Math.round(yrs(c.tc - A.eraT) / 1000) * 1000) : 30000;
+    const cand = [k, k * 2, k * 3.5, k * 0.4].map(v => Math.max(1000, Math.round(v / 1000) * 1000));
+    const opts = [...new Set(cand)].sort(() => Math.random() - 0.5);
     return {
-      q: '산소 그래프의 <b>점선(예측)</b>이 빨간 생존 한계선과 만나는 때는 지금부터 약 몇 분 뒤일까요?', opts: opts.map(v => `약 ${v}분 뒤`), a: opts.indexOf(k),
-      ok: `정답! 약 ${k}분 뒤예요. 지금까지의 데이터 추세로 미래를 예측한 거예요. 그 전에 탈출해요!`, no: '산소 그래프에서 빨간 점이 찍힌 곳의 시간에서 “지금” 시간을 빼 보세요.',
+      q: '<b>전체 관측 기록</b>으로 예측하면, 바다 평균 산소가 생존 한계 아래로 떨어지는 때는 지금부터 언제쯤일까요?', opts: opts.map(v => fmtYears(v) + ' 뒤'), a: opts.indexOf(k),
+      ok: `정답! ${fmtYears(k)} 뒤예요. 수천 년 동안 쌓인 관측 기록의 추세로 먼 미래를 예측한 거예요. 실제 연구에서도 페름기 말 대멸종의 주된 단계는 약 6만 년 안팎의 지질학적으로 매우 짧은 시간에 일어났다고 해요.`,
+      no: '슬라이더를 오른쪽 끝(전체 관측)에 두고, 그래프 아래 “예측” 문장을 확인해 보세요.',
     };
   },
 };

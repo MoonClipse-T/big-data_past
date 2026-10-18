@@ -20,7 +20,7 @@
 html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Noto Sans KR',system-ui,sans-serif;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
 input,select{-webkit-user-select:auto;user-select:auto}
 canvas#c,#hud,#touchui,#dialog{touch-action:none}
-canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block}
+canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:grab}
 .hidden{display:none!important}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:0 10px 40px rgba(0,0,0,.35)}
 button{font-family:inherit;cursor:pointer}
@@ -248,6 +248,7 @@ table.land th{color:var(--text);font-weight:700}
 .landfacts{font-size:13px;line-height:1.7;color:#d5e9f0;margin-bottom:10px}
 .fragwrap{text-align:center;padding:30px 0}
 .btn.small{padding:9px 16px;font-size:14px;margin-top:10px}
+.predbox{margin-top:8px;padding:10px 12px;border-radius:10px;background:rgba(95,242,255,.08);border:1px solid rgba(95,242,255,.25);font-size:14px;line-height:1.6}
 
 /* ---------- 패드(디벗) 터치 모드 ---------- */
 .only-touch{display:none}
@@ -280,10 +281,11 @@ body.touch .check{font-size:14px;padding:6px 0}
 body.touch .check input{width:24px;height:24px}
 body.touch #an-next{padding:16px 28px;font-size:19px}
 #touchui{position:fixed;inset:0;z-index:12;pointer-events:none}
-#joy{position:absolute;width:150px;height:150px;margin:-75px 0 0 -75px;border-radius:50%;border:2px solid rgba(95,242,255,.45);background:rgba(95,242,255,.08);opacity:0;transition:opacity .15s}
+#joy{position:absolute;width:150px;height:150px;margin:-75px 0 0 -75px;border-radius:50%;border:2px solid rgba(95,242,255,.45);background:rgba(95,242,255,.08);opacity:.45;transition:opacity .15s}
 #joy.on{opacity:1}
 #joy i{position:absolute;left:50%;top:50%;width:62px;height:62px;margin:-31px 0 0 -31px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#dffcff,#5ff2ff 45%,#1490b8);box-shadow:0 0 20px rgba(95,242,255,.6)}
-#joyhint{position:absolute;left:max(24px,env(safe-area-inset-left));bottom:max(26px,env(safe-area-inset-bottom));font-size:13px;color:rgba(232,246,251,.7);text-shadow:0 1px 4px #000}
+#joyhint{position:absolute;left:max(24px,env(safe-area-inset-left));bottom:max(14px,env(safe-area-inset-bottom));font-size:12.5px;color:rgba(232,246,251,.75);text-shadow:0 1px 4px #000}
+#lookhint{position:absolute;right:max(250px,24vw);bottom:max(40px,env(safe-area-inset-bottom));font-size:12.5px;color:rgba(232,246,251,.6);text-shadow:0 1px 4px #000;pointer-events:none}
 .tbtn{position:absolute;pointer-events:auto;border-radius:50%;border:2px solid rgba(255,255,255,.35);color:#fff;font-weight:900;font-family:inherit;display:grid;place-items:center;text-shadow:0 1px 3px rgba(0,0,0,.5);touch-action:none}
 .tbtn.on{transform:scale(.92);filter:brightness(1.3)}
 #tb-dash{right:max(28px,env(safe-area-inset-right));bottom:max(30px,env(safe-area-inset-bottom));width:112px;height:112px;font-size:19px;color:#3a2200;text-shadow:none;background:radial-gradient(circle at 40% 35%,rgba(255,236,170,.95),rgba(255,180,60,.85))}
@@ -320,13 +322,13 @@ body.touch #an-next{padding:16px 28px;font-size:19px}
         <button class="btn" id="startbtn">타임머신 연구소 입장</button>
       </div>
       <div class="controls">
-        <div class="panel only-touch"><b>화면 끌기</b>누르고 끌면 그 방향으로<br>(많이 끌수록 빨라요)</div>
-        <div class="panel only-touch"><b>돌진 버튼</b>오른쪽 아래 노란 버튼<br>포식자의 돌진을 피할 때!</div>
-        <div class="panel only-touch"><b>몸 말기 버튼</b>누르고 있으면<br>공격 피해 75% 감소</div>
+        <div class="panel only-touch"><b>왼쪽 조이스틱</b>이동 · 끝까지 밀고 있으면<br>자동 가속</div>
+        <div class="panel only-touch"><b>돌진 · 몸 말기</b>노란 버튼: 돌진<br>파란 버튼: 피해 75% 감소</div>
+        <div class="panel only-touch"><b>오른쪽 화면 끌기</b>시점 돌리기<br>(보는 쪽으로 헤엄쳐요)</div>
         <div class="panel only-touch"><b>먹이사슬</b><span style="color:#5dff8a">초록</span>=먹을 수 있음<br><span style="color:#ff6b7a">빨강</span>=위험한 포식자</div>
-        <div class="panel only-mouse"><b>마우스</b>가리키는 방향으로 헤엄<br>(WASD·방향키도 가능)</div>
-        <div class="panel only-mouse"><b>클릭 · 스페이스</b>돌진<br>포식자의 돌진을 피할 때!</div>
-        <div class="panel only-mouse"><b>오른쪽 클릭 · E</b>몸 말기<br>공격 피해 75% 감소</div>
+        <div class="panel only-mouse"><b>WASD · 방향키</b>이동<br>(보는 쪽 기준)</div>
+        <div class="panel only-mouse"><b>마우스 끌기</b>시점 돌리기<br>스페이스·Shift: 돌진</div>
+        <div class="panel only-mouse"><b>E 키</b>몸 말기<br>공격 피해 75% 감소</div>
         <div class="panel only-mouse"><b>먹이사슬</b><span style="color:#5dff8a">초록</span>=먹을 수 있음<br><span style="color:#ff6b7a">빨강</span>=위험한 포식자</div>
       </div>
     </div>
@@ -442,7 +444,8 @@ body.touch #an-next{padding:16px 28px;font-size:19px}
 <!-- 패드 터치 조작 -->
 <div id="touchui" class="hidden">
   <div id="joy"><i></i></div>
-  <div id="joyhint">화면을 누르고 끌어서 헤엄치기</div>
+  <div id="joyhint">왼쪽: 이동 (끝까지 밀면 자동 가속)</div>
+  <div id="lookhint">← 오른쪽 화면을 끌어서 시점 돌리기 →</div>
   <button class="tbtn" id="tb-roll">몸 말기</button>
   <button class="tbtn" id="tb-dash">돌진</button>
   <button id="tb-teacher" class="hidden">교사용 · 미션 완료</button>
