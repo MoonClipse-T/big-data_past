@@ -727,7 +727,7 @@ canvas.addEventListener('pointermove', e => {
     joy.x = dx / JOY_R; joy.y = dy / JOY_R; $('joy').firstElementChild.style.transform = `translate(${dx}px,${dy}px)`;
   } else if (e.pointerId === look.id) {
     const s = e.pointerType === 'mouse' ? 0.005 : 0.0065;
-    cam.yaw -= (e.clientX - look.x) * s; cam.pitch = clamp(cam.pitch - (e.clientY - look.y) * s * 0.8, -1.1, 0.75);
+    cam.yaw -= (e.clientX - look.x) * s * LOOK_INV; cam.pitch = clamp(cam.pitch - (e.clientY - look.y) * s * 0.8, -1.1, 0.75);
     look.x = e.clientX; look.y = e.clientY; cam.last = G.t;
   }
 });
@@ -748,6 +748,10 @@ $('mapbox').addEventListener('pointerdown', () => { if (G.mode === 'ocean') { ma
 if (P.has('teacher')) $('tb-teacher').classList.remove('hidden');
 $('tb-teacher').addEventListener('click', () => { if (G.playing) teacherComplete(); });
 $('mute').addEventListener('click', () => { $('mute').textContent = sound.toggleMute() ? '소리 꺼짐' : '소리 켜짐'; });
+// 시점 반전 (패드마다 기본값을 기억)
+let LOOK_INV = 1; try { LOOK_INV = localStorage.getItem('lookInv') === '1' ? -1 : 1; } catch (_) { }
+const invLabel = () => $('invert').textContent = LOOK_INV < 0 ? '시점 반전 켬' : '시점 반전 끔'; invLabel();
+$('invert').addEventListener('click', () => { LOOK_INV *= -1; try { localStorage.setItem('lookInv', LOOK_INV < 0 ? '1' : '0'); } catch (_) { } invLabel(); });
 function teacherComplete() { pl.charge = 100; probes.forEach(pb => { if (!pb.got) collectProbe(pb); }); }
 
 /* ---------------- 플레이어 ---------------- */

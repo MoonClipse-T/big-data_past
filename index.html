@@ -204,6 +204,8 @@ table.land th{color:var(--text);font-weight:700}
 .chip.ai{color:#e6d9ff;background:rgba(120,70,255,.45);border-color:#a98bff}
 .obj.ai .bar i{background:linear-gradient(90deg,#7a5cff,#c9a6ff)}
 .mapacc{font-size:11px;color:#c9a6ff;text-align:center;margin-top:5px}
+#invert{position:absolute;left:110px;bottom:18px;pointer-events:auto;font-size:12px;padding:7px 11px;border-radius:9px;border:1px solid var(--line);background:rgba(0,0,0,.45);color:var(--text)}
+body.touch #invert{left:auto;right:max(12px,env(safe-area-inset-right));bottom:auto;top:270px}
 #mute{position:absolute;left:18px;bottom:18px;pointer-events:auto;font-size:12px;padding:7px 11px;border-radius:9px;border:1px solid var(--line);background:rgba(0,0,0,.45);color:var(--text)}
 #mk-ai{color:#5dff8a}
 .fx.big{font-size:30px}
@@ -354,6 +356,7 @@ body.touch #an-next{padding:16px 28px;font-size:19px}
     <div class="srow2 thin"><span>대시</span><div class="sbar st"><i id="st-i"></i></div></div>
   </div>
   <button id="mute">소리 켜짐</button>
+  <button id="invert">시점 반전 끔</button>
   <div id="log" class="panel"></div>
   <div id="sensors" class="panel">
     <div class="sh"><span>몸 센서 · 실시간</span><span id="s-time">00:00</span></div>
