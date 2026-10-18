@@ -187,6 +187,68 @@ table.land th{color:var(--text);font-weight:700}
 #credits .box{width:min(760px,92vw);max-height:90vh;overflow:auto;padding:22px 24px;font-size:13.5px;line-height:1.75}
 #credits a{color:var(--cyan)}
 
+/* ---------- v2: 상단 상태바 · 먹이사슬 표시 · AI ---------- */
+#log{top:330px}
+#status{position:absolute;top:14px;left:50%;transform:translateX(-50%);width:min(440px,40vw);padding:9px 14px}
+#status.low{border-color:#ff4f5e;animation:lowhp .8s infinite}
+@keyframes lowhp{50%{box-shadow:0 0 30px rgba(255,60,80,.6)}}
+.srow2{display:grid;grid-template-columns:34px 1fr auto;gap:8px;align-items:center;font-size:12.5px;margin:3px 0}
+.srow2 b{font-family:'JetBrains Mono';font-size:13px;min-width:70px;text-align:right}
+.srow2 b.stage{font-family:'Noto Sans KR';font-size:12px;color:var(--gold);min-width:150px;text-align:left}
+.srow2.thin .sbar{height:5px}
+.sbar{height:11px;background:rgba(255,255,255,.08);border-radius:8px;overflow:hidden}
+.sbar i{display:block;height:100%;width:0;border-radius:8px;transition:width .2s}
+.sbar.hp i{background:linear-gradient(90deg,#ff3b55,#ff8a6b)} .sbar.xp i{background:linear-gradient(90deg,#3bd47a,#b6ff7a)} .sbar.st i{background:linear-gradient(90deg,#ffd66b,#fff2b8)}
+#chips{top:104px;flex-wrap:wrap;justify-content:center;width:min(640px,60vw)}
+#radio{top:150px;width:min(500px,44vw)}
+.chip.ai{color:#e6d9ff;background:rgba(120,70,255,.45);border-color:#a98bff}
+.obj.ai .bar i{background:linear-gradient(90deg,#7a5cff,#c9a6ff)}
+.mapacc{font-size:11px;color:#c9a6ff;text-align:center;margin-top:5px}
+#mute{position:absolute;left:18px;bottom:18px;pointer-events:auto;font-size:12px;padding:7px 11px;border-radius:9px;border:1px solid var(--line);background:rgba(0,0,0,.45);color:var(--text)}
+#mk-ai{color:#5dff8a}
+.fx.big{font-size:30px}
+.threat{position:absolute;width:46px;height:46px;border-radius:50%;background:radial-gradient(circle,#ff3b55 40%,rgba(255,59,85,0));color:#fff;font-weight:900;font-size:26px;display:grid;place-items:center;animation:blink .5s infinite}
+.clabel{position:absolute;transform:translate(-50%,-100%);padding:3px 9px;border-radius:10px;font-size:12.5px;font-weight:700;white-space:nowrap;text-align:center;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.18);line-height:1.3}
+.clabel small{display:block;font-size:10.5px;font-weight:500}
+.clabel.eat{border-color:#5dff8a} .clabel.eat small{color:#5dff8a}
+.clabel.bad{border-color:#ff4f5e} .clabel.bad small{color:#ff8a95}
+.clabel.meh small{color:#cfdde3}
+#toast.red{color:#ffb3ba} #toast.gold{color:#ffe7a6}
+.credit-line{position:absolute;left:0;right:0;bottom:10px;text-align:center;font-size:10.5px;color:rgba(232,246,251,.42);padding:0 16px;line-height:1.5}
+/* 분석실 v2 */
+#an-steps{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+#an-steps span{padding:6px 12px;border-radius:20px;font-size:13px;background:rgba(255,255,255,.05);color:var(--dim);border:1px solid rgba(255,255,255,.08)}
+#an-steps span.on{background:rgba(95,242,255,.15);color:#fff;border-color:var(--cyan)}
+#an-steps span.done{color:var(--good)}
+.lead{font-size:16px;line-height:1.6;margin-bottom:14px}
+.v3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media (max-width:800px){.v3{grid-template-columns:1fr}}
+.vcard{padding:16px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)}
+.vk{font-size:13px;color:var(--cyan);letter-spacing:.06em;font-weight:700;margin-bottom:6px}
+.vbig{font-size:40px;font-weight:700;color:var(--gold);line-height:1.1}
+.vbig2{font-size:24px;font-weight:700;color:#c9a6ff;margin-top:10px}
+.vbig small,.vbig2 small{font-size:14px;margin-left:3px}
+.vs{font-size:12.5px;color:var(--dim)}
+.vnote{margin-top:12px;font-size:13.5px;padding:8px 10px;border-radius:8px;background:rgba(255,214,107,.08)}
+.chips2{display:flex;flex-wrap:wrap;gap:6px}
+.chips2 span{font-size:12px;padding:4px 9px;border-radius:14px;background:rgba(95,242,255,.1);border:1px solid rgba(95,242,255,.25)}
+.chips2.sky span{background:rgba(201,166,255,.1);border-color:rgba(201,166,255,.3)}
+.aiuse{margin-top:14px;padding:12px 14px;border-radius:12px;background:rgba(120,70,255,.12);border:1px solid rgba(169,139,255,.35);font-size:14px}
+.ctitle{font-weight:700;font-size:15.5px;margin-bottom:8px}
+.guide{padding:12px 14px;border-radius:12px;background:rgba(95,242,255,.06);border:1px solid rgba(95,242,255,.2);font-size:13.5px;margin-bottom:12px}
+.guide ol{margin:6px 0 0;padding-left:20px;line-height:1.7}
+.maps{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.maps canvas{width:100%;display:block;border-radius:10px}
+.mlab{text-align:center;font-size:13px;font-weight:700;margin-top:5px}
+.legend2{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--dim);margin:8px 0}
+.legend2 i{display:block;width:160px;height:8px;border-radius:5px;background:linear-gradient(90deg,rgb(30,40,120),rgb(25,150,190),rgb(60,220,150),rgb(240,230,80),rgb(255,120,60))}
+.legend3{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;margin-top:6px}
+.dim{color:var(--dim)}
+#chartbox canvas,#tl{width:100%;display:block;margin-bottom:6px}
+.landfacts{font-size:13px;line-height:1.7;color:#d5e9f0;margin-bottom:10px}
+.fragwrap{text-align:center;padding:30px 0}
+.btn.small{padding:9px 16px;font-size:14px;margin-top:10px}
+
 /* ---------- 패드(디벗) 터치 모드 ---------- */
 .only-touch{display:none}
 body.touch .only-touch{display:block}
@@ -201,11 +263,14 @@ body.touch .obj{margin:6px 0}
 body.touch #sensors{width:220px;padding:10px 12px;right:max(12px,env(safe-area-inset-right));top:12px}
 body.touch .srow{padding:3px 0}
 body.touch .srow .v{font-size:14px}
-body.touch #mapbox{left:max(12px,env(safe-area-inset-left));right:auto;top:232px;bottom:auto;width:170px;padding:8px;pointer-events:auto}
+body.touch #mapbox{left:max(12px,env(safe-area-inset-left));right:auto;top:290px;bottom:auto;width:170px;padding:8px;pointer-events:auto}
 body.touch #minimap{width:154px;height:154px}
-body.touch #bars{left:50%;transform:translateX(-50%);bottom:max(12px,env(safe-area-inset-bottom));width:300px;padding:9px 12px}
+body.touch #status{width:min(360px,36vw);top:10px}
+body.touch #chips{top:92px;width:min(460px,44vw)}
+body.touch #mute{left:auto;right:max(12px,env(safe-area-inset-right));bottom:auto;top:232px}
+body.touch #oldbars{left:50%;transform:translateX(-50%);bottom:max(12px,env(safe-area-inset-bottom));width:300px;padding:9px 12px}
 body.touch #toast{bottom:96px}
-body.touch #radio{top:58px;width:min(480px,46vw);font-size:13.5px}
+body.touch #radio{top:128px;width:min(480px,46vw);font-size:13.5px}
 body.touch #dialog{bottom:20px}
 body.touch #an-plot{aspect-ratio:16/11}
 body.touch .opt{padding:13px 14px}
@@ -255,18 +320,18 @@ body.touch #an-next{padding:16px 28px;font-size:19px}
         <button class="btn" id="startbtn">타임머신 연구소 입장</button>
       </div>
       <div class="controls">
-        <div class="panel only-touch"><b>화면 끌기</b>아무 곳이나 누르고<br>끌면 그 방향으로 헤엄</div>
-        <div class="panel only-touch"><b>돌진 버튼</b>오른쪽 아래 노란 버튼<br>(누르고 있는 동안)</div>
-        <div class="panel only-touch"><b>몸 말기 버튼</b>파란 버튼을 누르고 있으면<br>공격을 튕겨냄</div>
-        <div class="panel only-touch"><b>데이터 지도 탭</b>왼쪽 지도를 탭하면<br>변수가 바뀜</div>
-        <div class="panel only-mouse"><b>마우스</b>가리키는 방향으로 헤엄<br>(키보드 WASD·방향키도 가능)</div>
-        <div class="panel only-mouse"><b>클릭 · 스페이스</b>돌진<br>(대시 게이지 소모)</div>
-        <div class="panel only-mouse"><b>오른쪽 클릭 · E</b>몸 말기 방어<br>(공격을 튕겨냄)</div>
-        <div class="panel only-mouse"><b>M 키</b>데이터 지도의<br>변수 바꾸기</div>
+        <div class="panel only-touch"><b>화면 끌기</b>누르고 끌면 그 방향으로<br>(많이 끌수록 빨라요)</div>
+        <div class="panel only-touch"><b>돌진 버튼</b>오른쪽 아래 노란 버튼<br>포식자의 돌진을 피할 때!</div>
+        <div class="panel only-touch"><b>몸 말기 버튼</b>누르고 있으면<br>공격 피해 75% 감소</div>
+        <div class="panel only-touch"><b>먹이사슬</b><span style="color:#5dff8a">초록</span>=먹을 수 있음<br><span style="color:#ff6b7a">빨강</span>=위험한 포식자</div>
+        <div class="panel only-mouse"><b>마우스</b>가리키는 방향으로 헤엄<br>(WASD·방향키도 가능)</div>
+        <div class="panel only-mouse"><b>클릭 · 스페이스</b>돌진<br>포식자의 돌진을 피할 때!</div>
+        <div class="panel only-mouse"><b>오른쪽 클릭 · E</b>몸 말기<br>공격 피해 75% 감소</div>
+        <div class="panel only-mouse"><b>먹이사슬</b><span style="color:#5dff8a">초록</span>=먹을 수 있음<br><span style="color:#ff6b7a">빨강</span>=위험한 포식자</div>
       </div>
-      <div class="linkrow"><button class="btn ghost" id="creditbtn">3D 에셋 출처</button></div>
     </div>
   </div>
+  <div class="credit-line">3D 모델: Sketchfab — skache, SammyTheCitipati, Gotta_go_evil_Fast, yoshi2024-2025, hymenoptera0908, huykhoi2407, darwinmuseum.ru, lingthyguy, gamico, truhvanor, TimFallas, eggnot, DigitalAtlasOfAncientLife, a_wilczek, CMBC, paleobiome, vertexmonster · Poly Haven · 음악: ElevenLabs</div>
 </div>
 
 <!-- HUD -->
@@ -277,22 +342,26 @@ body.touch #an-next{padding:16px 28px;font-size:19px}
     <div class="obj" id="o-charge"><div class="lab">타임머신 에너지 충전 <b id="v-charge">0%</b></div><div class="bar"><i></i></div></div>
     <div class="obj" id="o-probe"><div class="lab">관측 부표 회수 <b id="v-probe">0 / 5</b></div><div class="bar"><i></i></div></div>
     <div class="obj" id="o-rows"><div class="lab">수집한 빅데이터 <b id="v-rows">0행</b></div></div>
+    <div class="obj ai" id="o-acc"><div class="lab">AI 예측 정확도 <b id="v-acc">0%</b></div><div class="bar"><i></i></div></div>
+    <div class="obj" id="o-dex"><div class="lab">생물 도감 <b id="v-dex">0 / 0</b></div></div>
     <div class="obj hidden" id="o-home"><div class="lab"><b style="color:var(--gold)">▶ 빛기둥(타임머신)으로 귀환!</b></div></div>
   </div>
+  <div id="status" class="panel">
+    <div class="srow2"><span>체력</span><div class="sbar hp"><i id="hp-i"></i></div><b id="v-hp">100</b></div>
+    <div class="srow2"><span>성장</span><div class="sbar xp"><i id="xp-i"></i></div><b id="v-stage" class="stage">1단계</b></div>
+    <div class="srow2 thin"><span>대시</span><div class="sbar st"><i id="st-i"></i></div></div>
+  </div>
+  <button id="mute">소리 켜짐</button>
   <div id="log" class="panel"></div>
   <div id="sensors" class="panel">
     <div class="sh"><span>몸 센서 · 실시간</span><span id="s-time">00:00</span></div>
     <div id="srows"></div>
   </div>
-  <div id="bars" class="panel">
-    <div class="row"><span>체력</span><div class="bar" id="hpbar"><i></i></div><span id="v-hp">100</span></div>
-    <div class="row"><span>대시</span><div class="bar" id="stbar"><i></i></div><span id="v-st">100</span></div>
-    <div id="lvl">성장 단계 <b id="v-lvl">1</b> · 먹은 먹이 <b id="v-eat">0</b></div>
-  </div>
   <div id="mapbox" class="panel">
-    <div id="maptitle"><span>데이터 지도 · <b id="map-var">수온</b></span><kbd class="only-mouse">M</kbd><kbd class="only-touch">탭</kbd></div>
+    <div id="maptitle"><span>AI 지도 · <b id="map-var">먹이 예측</b></span><kbd class="only-mouse">M</kbd><kbd class="only-touch">탭</kbd></div>
     <canvas id="minimap" width="400" height="400"></canvas>
     <div id="mapleg"><span id="leg-lo">낮음</span><div class="ramp"></div><span id="leg-hi">높음</span></div>
+    <div id="map-acc" class="mapacc">데이터 부족</div>
   </div>
   <div id="chips"></div>
   <div id="radio" class="panel"><div class="orb"></div><div class="who">ARIA · 무전</div><div id="radio-text"></div></div>
@@ -301,6 +370,9 @@ body.touch #an-next{padding:16px 28px;font-size:19px}
   <div id="banner"><div class="a" id="bn-a"></div><div class="b" id="bn-b"></div><div class="c" id="bn-c"></div></div>
   <div class="marker hidden" id="mk-probe"><div class="dot"></div><span>관측 부표</span></div>
   <div class="marker hidden" id="mk-home"><div class="dot"></div><span>타임머신</span></div>
+  <div class="marker hidden" id="mk-ai"><div class="dot"></div><span>AI 추천</span></div>
+  <div class="threat hidden">!</div><div class="threat hidden">!</div><div class="threat hidden">!</div>
+  <div class="clabel hidden"></div><div class="clabel hidden"></div><div class="clabel hidden"></div>
 </div>
 
 <!-- 대화 -->
@@ -317,26 +389,10 @@ body.touch #an-next{padding:16px 28px;font-size:19px}
 <!-- 분석실 -->
 <div id="analysis" class="modal hidden">
   <div class="box panel">
-    <div class="mhead"><h2>빅데이터 분석실</h2><span id="an-era">캄브리아기 데이터</span></div>
-    <div class="an-grid">
-      <div>
-        <div class="ctl">
-          데이터셋 <select id="an-ds"></select>
-          가로축(X) <select id="an-x"></select>
-          세로축(Y) <select id="an-y"></select>
-        </div>
-        <canvas id="an-plot"></canvas>
-        <div id="an-stats"></div>
-        <div class="slider">사용할 데이터 수 <input type="range" id="an-n" min="5" max="100" value="100"><b id="an-nv" class="mono">0</b></div>
-        <label class="check" id="an-cleanbox"><input type="checkbox" id="an-clean"> 이상값 걸러내기 (데이터 검증하기)</label>
-      </div>
-      <div>
-        <div class="card"><h3>드론 기상 관측 · 육지의 대기 데이터</h3><div id="an-land"></div></div>
-        <div class="card"><h3 id="an-qh">예측 미션</h3><div id="an-q"></div></div>
-        <div class="card"><h3>귀환 좌표 조각</h3><div class="frag" id="an-frag"></div></div>
-      </div>
-    </div>
-    <div class="mfoot"><button class="btn hidden" id="an-next">다음 시대로 점프 ▶</button></div>
+    <div class="mhead"><h2>빅데이터 분석실</h2><span id="an-era">캄브리아기</span></div>
+    <div id="an-steps"></div>
+    <div id="an-body"></div>
+    <div class="mfoot"><button class="btn hidden" id="an-next">다음 ▶</button></div>
   </div>
 </div>
 
@@ -349,7 +405,7 @@ body.touch #an-next{padding:16px 28px;font-size:19px}
     <div class="cols">
       <div class="card">
         <h3>오늘의 개념 · 빅데이터란?</h3>
-        <p><b>기존의 데이터 관리 및 처리 도구로는 다루기 어려울 만큼 방대한 양의 데이터</b>를 빅데이터라고 해요. 삼엽충 센서는 0.5초마다 10가지 변수를 기록했고, 부표 데이터까지 합치니 사람이 표로 하나하나 보기 힘든 양이 되었죠. 그래서 그래프·상관계수·추세선 같은 <b>분석 도구</b>가 필요했어요.</p>
+        <p><b>기존의 데이터 관리 및 처리 도구로는 다루기 어려울 만큼 방대한 양의 데이터</b>를 빅데이터라고 해요. 삼엽충 센서는 0.5초마다 10가지 변수를 기록했고, 부표 데이터까지 합치니 사람이 표로 하나하나 보기 힘든 양이 되었죠. 그래서 데이터 지도·막대그래프·추세선 같은 <b>분석 도구</b>와 AI 예측이 필요했어요.</p>
       </div>
       <div class="card">
         <h3>교과서 속 빅데이터 활용 4가지</h3>
@@ -364,7 +420,7 @@ body.touch #an-next{padding:16px 28px;font-size:19px}
         <h3>빅데이터의 문제점도 기억해요</h3>
         <ul>
           <li><b>충분히 검증되지 못한 데이터</b> · 타임머신 좌표 오류, 고장 난 부표의 이상값</li>
-          <li><b>지나친 데이터 의존</b> · 데이터가 적을 때 그린 추세선은 쉽게 틀렸어요</li>
+          <li><b>지나친 데이터 의존</b> · 데이터가 적을 때 AI 지도는 빈칸투성이였고, 예측도 틀릴 수 있어요</li>
           <li><b>사생활 침해 가능성</b> · 유전체처럼 민감한 데이터는 어떻게 지켜야 할까? (2차시)</li>
         </ul>
       </div>
@@ -378,30 +434,8 @@ body.touch #an-next{padding:16px 28px;font-size:19px}
       <div class="b">2차시 · 미래 편 「바이러스 X」</div>
       <div style="color:#f3d6e2">미래에서 온 구조 요청. 유전체 빅데이터를 분석해 치료제를 찾아라!</div>
     </div>
-    <div class="mfoot" style="gap:10px"><button class="btn ghost" id="end-credit">3D 에셋 출처</button><button class="btn" id="end-restart">처음부터 다시</button></div>
-  </div>
-</div>
-
-<!-- 출처 -->
-<div id="credits" class="modal hidden">
-  <div class="box panel">
-    <h2 style="font-family:'Black Han Sans';font-weight:400;margin:0 0 10px">3D 에셋 출처</h2>
-    <div>Sketchfab (CC BY 4.0 — 출처 표시)</div>
-    <ul>
-      <li>Anomalocaris 3D Model — skache</li>
-      <li>Dinoraul's Dunkleosteus 1 — SammyTheCitipati</li>
-      <li>Hsw Buzz (Helicoprion) — hsejira</li>
-      <li>Sci-fi lab — a_wilczek</li>
-      <li>Rainbow Haven Reef - coral — CMBC</li>
-    </ul>
-    <div>Sketchfab (Standard License)</div>
-    <ul>
-      <li>Trilobite Proetida — paleobiome</li>
-      <li>Time Machine — vertexmonster</li>
-    </ul>
-    <div>Poly Haven (CC0) — Boulder 01 (Rico Cilliers), Coast Sand 01 텍스처 (Rob Tuytel)</div>
     <div class="note">지질 시대의 수치(대기 산소·CO₂·기온 등)는 지질 기록 기반 모형의 대략적 추정치이며, 게임 속 바다 데이터는 수업용 시뮬레이션입니다.</div>
-    <div class="mfoot"><button class="btn" id="credit-close">닫기</button></div>
+    <div class="mfoot"><button class="btn" id="end-restart">처음부터 다시</button></div>
   </div>
 </div>
 
