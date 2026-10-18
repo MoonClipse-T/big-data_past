@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#03080d">
+<title>크로노스 프로토콜</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#03080d; --panel:rgba(6,18,28,.62); --line:rgba(120,230,255,.22);
+  --cyan:#5ff2ff; --cyan2:#1fb8d6; --text:#e8f6fb; --dim:#8fb3c2;
+  --warn:#ffb547; --bad:#ff4f5e; --good:#5dffa8; --gold:#ffd66b;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Noto Sans KR',system-ui,sans-serif;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+input,select{-webkit-user-select:auto;user-select:auto}
+canvas#c,#hud,#touchui,#dialog{touch-action:none}
+canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block}
+.hidden{display:none!important}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:0 10px 40px rgba(0,0,0,.35)}
+button{font-family:inherit;cursor:pointer}
+.btn{background:linear-gradient(180deg,#2ad4f0,#1490b8);color:#00141c;border:0;border-radius:12px;padding:14px 26px;font-weight:900;font-size:18px;letter-spacing:.02em;box-shadow:0 0 0 1px rgba(255,255,255,.25) inset,0 8px 30px rgba(31,184,214,.35);transition:transform .12s,filter .12s}
+.btn:hover{transform:translateY(-2px);filter:brightness(1.1)}
+.btn.ghost{background:transparent;color:var(--cyan);box-shadow:0 0 0 1px var(--line) inset}
+.mono{font-family:'JetBrains Mono',monospace}
+
+/* ---------- 로딩 / 타이틀 ---------- */
+#screen{position:fixed;inset:0;display:grid;place-items:center;z-index:50;
+  background:radial-gradient(ellipse at 50% 30%,rgba(31,184,214,.22),transparent 60%),radial-gradient(ellipse at 50% 120%,rgba(95,242,255,.12),transparent 50%),#02070b}
+#screen .wrap{width:min(880px,92vw);text-align:center}
+.kicker{font-family:'JetBrains Mono',monospace;color:var(--cyan);letter-spacing:.35em;font-size:13px;opacity:.85}
+h1.title{font-family:'Black Han Sans',sans-serif;font-weight:400;font-size:clamp(46px,8vw,96px);line-height:1;margin:14px 0 6px;
+  background:linear-gradient(180deg,#fff,#9eeeff 55%,#2ab7d8);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 30px rgba(95,242,255,.35))}
+.subtitle{color:var(--dim);font-size:clamp(15px,2vw,19px);margin-bottom:28px}
+.subtitle b{color:var(--text)}
+#loadbar{height:6px;background:rgba(255,255,255,.08);border-radius:6px;overflow:hidden;margin:24px auto 8px;width:min(420px,80vw)}
+#loadbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan2),var(--cyan));transition:width .2s}
+#loadtxt{font-size:13px;color:var(--dim)}
+#startbox{display:flex;flex-direction:column;gap:18px;align-items:center}
+.namerow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center}
+.namerow input{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text);border-radius:12px;padding:13px 16px;font-size:17px;width:240px;font-family:inherit;outline:none}
+.namerow input:focus{border-color:var(--cyan)}
+.controls{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;width:100%;margin-top:6px}
+.controls div{padding:12px 10px;font-size:13px;color:var(--dim);line-height:1.5}
+.controls b{display:block;color:var(--text);font-size:15px;margin-bottom:2px}
+.linkrow{display:flex;gap:10px}
+@media (max-width:640px){.controls{grid-template-columns:repeat(2,1fr)}}
+
+/* ---------- HUD ---------- */
+#hud{position:fixed;inset:0;pointer-events:none;z-index:10;transition:opacity .3s}
+#hud.dim{opacity:.18}
+#mission{position:absolute;left:18px;top:18px;width:300px;padding:14px 16px}
+#mission .era{font-family:'Black Han Sans';font-size:22px;color:#fff}
+#mission .ago{font-size:12px;color:var(--cyan);font-family:'JetBrains Mono';letter-spacing:.06em;margin-bottom:10px}
+.obj{margin:9px 0}
+.obj .lab{display:flex;justify-content:space-between;font-size:13px;color:var(--dim)}
+.obj .lab b{color:var(--text);font-weight:700}
+.obj.done .lab b{color:var(--good)}
+.bar{height:7px;background:rgba(255,255,255,.08);border-radius:6px;overflow:hidden;margin-top:4px}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan2),var(--cyan));transition:width .25s}
+#log{position:absolute;left:18px;top:250px;width:300px;padding:10px 12px;font-family:'JetBrains Mono';font-size:10.5px;color:#7fe9c6;line-height:1.55;white-space:pre;overflow:hidden;height:118px}
+#log .h{color:var(--dim)}
+#sensors{position:absolute;right:18px;top:18px;width:262px;padding:12px 14px}
+.sh{font-size:12px;color:var(--cyan);font-family:'JetBrains Mono';letter-spacing:.12em;margin-bottom:6px;display:flex;justify-content:space-between}
+.srow{display:grid;grid-template-columns:86px 1fr;align-items:center;gap:8px;padding:5px 0;border-top:1px solid rgba(255,255,255,.05)}
+.srow .k{font-size:12.5px;color:var(--dim)}
+.srow .v{font-family:'JetBrains Mono';font-size:15px;text-align:right;font-weight:700}
+.srow .v small{font-size:10px;color:var(--dim);font-weight:500;margin-left:3px}
+.srow.warn .v{color:var(--warn)} .srow.bad .v{color:var(--bad);animation:blink .6s infinite}
+@keyframes blink{50%{opacity:.35}}
+#bars{position:absolute;left:18px;bottom:18px;width:330px;padding:12px 14px}
+#bars .row{display:grid;grid-template-columns:52px 1fr 44px;gap:8px;align-items:center;font-size:12.5px;margin:4px 0}
+#bars .row span:last-child{text-align:right;font-family:'JetBrains Mono'}
+#hpbar i{background:linear-gradient(90deg,#ff5b6b,#ff9a6b)}
+#stbar i{background:linear-gradient(90deg,#ffd66b,#fff2b8)}
+#lvl{font-size:12px;color:var(--dim);margin-top:4px}
+#lvl b{color:var(--gold)}
+#mapbox{position:absolute;right:18px;bottom:18px;padding:10px;width:222px}
+#minimap{width:200px;height:200px;border-radius:10px;display:block;background:#021018}
+#mapleg{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--dim);margin-top:7px}
+#mapleg .ramp{flex:1;height:6px;margin:0 6px;border-radius:4px;background:linear-gradient(90deg,#2b4cff,#19d3c5,#9bff5c,#ffd23f,#ff4b4b)}
+#maptitle{font-size:11.5px;color:var(--text);margin-bottom:6px;display:flex;justify-content:space-between}
+#maptitle kbd{font-family:'JetBrains Mono';font-size:10px;border:1px solid var(--line);border-radius:4px;padding:0 4px;color:var(--cyan)}
+#chips{position:absolute;top:18px;left:50%;transform:translateX(-50%);display:flex;gap:8px}
+.chip{padding:6px 12px;border-radius:30px;font-size:13px;font-weight:700;background:rgba(0,0,0,.45);border:1px solid var(--line)}
+.chip.red{color:#fff;background:rgba(255,60,80,.6);border-color:#ff7b88;animation:blink .7s infinite}
+.chip.green{color:#c8ffe2;border-color:rgba(93,255,168,.5)}
+.chip.gold{color:#fff3c4;border-color:rgba(255,214,107,.6)}
+#radio{position:absolute;top:64px;left:50%;transform:translateX(-50%);width:min(560px,60vw);padding:11px 14px 11px 60px;font-size:14.5px;line-height:1.55;opacity:0;transition:opacity .35s, transform .35s}
+#radio.show{opacity:1;transform:translateX(-50%) translateY(4px)}
+#radio .orb{position:absolute;left:14px;top:12px;width:34px;height:34px}
+#radio .who{font-size:11px;color:var(--cyan);font-family:'JetBrains Mono';letter-spacing:.15em}
+#toast{position:absolute;bottom:120px;left:50%;transform:translateX(-50%);padding:10px 18px;font-weight:700;font-size:16px;opacity:0;transition:opacity .3s;white-space:nowrap}
+#toast.show{opacity:1}
+#vignette{position:absolute;inset:0;box-shadow:inset 0 0 160px 40px rgba(255,30,50,0);transition:box-shadow .25s}
+#banner{position:absolute;left:0;right:0;top:34%;text-align:center;opacity:0;transition:opacity 1s}
+#banner.show{opacity:1}
+#banner .a{font-family:'JetBrains Mono';letter-spacing:.4em;color:var(--cyan);font-size:14px}
+#banner .b{font-family:'Black Han Sans';font-size:clamp(44px,7vw,84px);text-shadow:0 0 40px rgba(0,0,0,.6)}
+#banner .c{font-size:18px;color:#cdeaf3}
+.marker{position:absolute;transform:translate(-50%,-50%);text-align:center;font-size:12px;font-weight:700;text-shadow:0 1px 4px #000}
+.marker .dot{width:16px;height:16px;margin:0 auto 3px;border-radius:50%;border:2px solid currentColor;box-shadow:0 0 12px currentColor}
+#mk-probe{color:var(--cyan)} #mk-home{color:var(--gold)}
+.fx{position:absolute;font-weight:900;font-size:18px;color:var(--good);text-shadow:0 2px 6px #000;pointer-events:none;transition:transform .9s ease-out,opacity .9s;white-space:nowrap}
+
+/* ---------- 대화창 ---------- */
+#dialog{position:fixed;left:50%;bottom:34px;transform:translateX(-50%);width:min(860px,92vw);padding:20px 24px 18px 104px;z-index:30;cursor:pointer;min-height:118px}
+#dialog .orb{position:absolute;left:22px;top:22px;width:62px;height:62px}
+#dialog.me .orb{display:none} #dialog.me{padding-left:24px}
+#dialog.sys .orb{display:none} #dialog.sys{padding-left:24px;border-color:rgba(255,80,90,.45)}
+#dlg-who{font-size:13px;font-weight:900;letter-spacing:.12em;color:var(--cyan);margin-bottom:6px;font-family:'JetBrains Mono'}
+#dialog.me #dlg-who{color:var(--gold)} #dialog.sys #dlg-who{color:#ff7b88}
+#dlg-text{font-size:clamp(16px,1.6vw,20px);line-height:1.65;white-space:pre-line}
+#dialog.sys #dlg-text{font-family:'JetBrains Mono';color:#ffd0d4}
+#dlg-next{position:absolute;right:18px;bottom:12px;font-size:12px;color:var(--dim);animation:blink 1.2s infinite}
+.orb{border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#8ff6ff 18%,#16b5d6 50%,#062a3a 75%);box-shadow:0 0 24px rgba(95,242,255,.6);animation:orb 2.4s ease-in-out infinite}
+@keyframes orb{50%{box-shadow:0 0 40px rgba(95,242,255,.9);transform:scale(1.05)}}
+
+/* ---------- 효과 ---------- */
+#flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:40;transition:opacity .5s}
+#warptxt{position:fixed;inset:0;display:grid;place-items:center;z-index:20;pointer-events:none;text-align:center}
+#warptxt .a{font-family:'JetBrains Mono';font-size:15px;letter-spacing:.3em;color:#ffb3ba}
+#warptxt .b{font-family:'JetBrains Mono';font-weight:700;font-size:clamp(34px,6vw,70px);color:#fff;text-shadow:0 0 30px #5ff2ff, 3px 0 #ff3b6b, -3px 0 #3bd8ff}
+#alarm{position:fixed;inset:0;pointer-events:none;z-index:9;background:radial-gradient(ellipse at center,transparent 40%,rgba(255,20,40,.45));opacity:0}
+#alarm.on{animation:alarm .7s infinite}
+@keyframes alarm{50%{opacity:1}}
+
+/* ---------- 분석실 ---------- */
+.modal{position:fixed;inset:0;z-index:35;display:grid;place-items:center;background:rgba(1,6,10,.72);backdrop-filter:blur(6px)}
+#analysis .box{width:min(1240px,96vw);max-height:94vh;overflow:auto;padding:20px 22px}
+.mhead{display:flex;align-items:baseline;gap:14px;margin-bottom:12px;flex-wrap:wrap}
+.mhead h2{font-family:'Black Han Sans';font-weight:400;font-size:30px;margin:0}
+.mhead span{color:var(--cyan);font-family:'JetBrains Mono';font-size:13px}
+.an-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:18px}
+@media (max-width:900px){.an-grid{grid-template-columns:1fr}}
+.ctl{display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:13px;color:var(--dim);margin-bottom:10px}
+.ctl select{background:#0b2230;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-family:inherit;font-size:13px}
+#an-plot{width:100%;height:auto;aspect-ratio:16/10.5;background:rgba(0,0,0,.25);border-radius:12px;border:1px solid rgba(255,255,255,.06);display:block}
+#an-stats{font-size:14px;margin:10px 0 6px;line-height:1.6}
+#an-stats b{color:var(--gold)}
+.slider{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--dim);margin:8px 0}
+.slider input{flex:1;accent-color:var(--cyan)}
+.check{font-size:13px;color:var(--dim);display:flex;gap:8px;align-items:center}
+.card{padding:14px 16px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07);margin-bottom:14px}
+.card h3{margin:0 0 8px;font-size:15px;color:var(--cyan);letter-spacing:.04em}
+table.land{width:100%;border-collapse:collapse;font-size:12.5px}
+table.land th,table.land td{padding:6px 6px;border-bottom:1px solid rgba(255,255,255,.06);text-align:center}
+table.land th:first-child,table.land td:first-child{text-align:left;color:var(--dim)}
+table.land td.lock{color:#46606b}
+table.land th{color:var(--text);font-weight:700}
+.note{font-size:11.5px;color:var(--dim);margin-top:6px}
+.q{font-size:16px;font-weight:700;line-height:1.55;margin-bottom:10px}
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);color:var(--text);border-radius:10px;padding:11px 14px;font-size:15px;transition:background .15s}
+.opt:hover{background:rgba(95,242,255,.12);border-color:var(--cyan)}
+.opt.right{background:rgba(93,255,168,.18);border-color:var(--good)}
+.opt.wrong{background:rgba(255,79,94,.16);border-color:var(--bad);animation:shake .3s}
+@keyframes shake{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.fb{margin-top:10px;font-size:14px;line-height:1.6;padding:10px 12px;border-radius:10px}
+.fb.ok{background:rgba(93,255,168,.1);color:#d6ffe9}
+.fb.no{background:rgba(255,181,71,.1);color:#ffe7c2}
+.frag{display:flex;gap:10px;align-items:center;justify-content:center;font-family:'JetBrains Mono';font-size:28px;font-weight:700;margin:6px 0 2px}
+.frag span{padding:6px 12px;border-radius:8px;background:rgba(0,0,0,.35);border:1px solid var(--line);min-width:64px;text-align:center}
+.frag span.got{color:var(--gold);border-color:rgba(255,214,107,.6);box-shadow:0 0 18px rgba(255,214,107,.25)}
+.mfoot{display:flex;justify-content:flex-end;margin-top:14px}
+
+/* ---------- 엔딩 ---------- */
+#ending .box{width:min(1060px,94vw);max-height:94vh;overflow:auto;padding:26px 28px}
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:14px 0 18px}
+.stats div{padding:12px;text-align:center;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)}
+.stats b{display:block;font-family:'JetBrains Mono';font-size:24px;color:var(--gold)}
+.stats span{font-size:12px;color:var(--dim)}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:800px){.cols,.stats{grid-template-columns:1fr 1fr}}
+.cols p,.cols li{font-size:14px;line-height:1.7;color:#d5e9f0}
+.cols ul{margin:0;padding-left:18px}
+.tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;margin-right:6px;font-weight:700}
+.tag.now{background:rgba(93,255,168,.15);color:var(--good)} .tag.next{background:rgba(255,214,107,.15);color:var(--gold)}
+.teaser{margin-top:16px;padding:18px;border-radius:14px;text-align:center;background:linear-gradient(135deg,rgba(255,60,100,.16),rgba(120,60,255,.16));border:1px solid rgba(255,120,160,.35)}
+.teaser .a{font-family:'JetBrains Mono';font-size:12px;letter-spacing:.3em;color:#ff9db5}
+.teaser .b{font-family:'Black Han Sans';font-size:30px;margin:6px 0}
+#credits .box{width:min(760px,92vw);max-height:90vh;overflow:auto;padding:22px 24px;font-size:13.5px;line-height:1.75}
+#credits a{color:var(--cyan)}
+
+/* ---------- 패드(디벗) 터치 모드 ---------- */
+.only-touch{display:none}
+body.touch .only-touch{display:block}
+body.touch .only-mouse{display:none!important}
+/* 3D 화면 위 반투명 블러는 패드 GPU에 부담이 커서 끔 */
+body.touch .panel,body.touch .modal{backdrop-filter:none;-webkit-backdrop-filter:none}
+body.touch .panel{background:rgba(6,18,28,.84)}
+body.touch #log{display:none}
+body.touch #mission{width:250px;padding:11px 13px;left:max(12px,env(safe-area-inset-left));top:12px}
+body.touch #mission .era{font-size:19px}
+body.touch .obj{margin:6px 0}
+body.touch #sensors{width:220px;padding:10px 12px;right:max(12px,env(safe-area-inset-right));top:12px}
+body.touch .srow{padding:3px 0}
+body.touch .srow .v{font-size:14px}
+body.touch #mapbox{left:max(12px,env(safe-area-inset-left));right:auto;top:232px;bottom:auto;width:170px;padding:8px;pointer-events:auto}
+body.touch #minimap{width:154px;height:154px}
+body.touch #bars{left:50%;transform:translateX(-50%);bottom:max(12px,env(safe-area-inset-bottom));width:300px;padding:9px 12px}
+body.touch #toast{bottom:96px}
+body.touch #radio{top:58px;width:min(480px,46vw);font-size:13.5px}
+body.touch #dialog{bottom:20px}
+body.touch #an-plot{aspect-ratio:16/11}
+body.touch .opt{padding:13px 14px}
+body.touch .ctl select{padding:9px 10px;font-size:14px}
+body.touch .slider input{height:30px}
+body.touch .check{font-size:14px;padding:6px 0}
+body.touch .check input{width:24px;height:24px}
+body.touch #an-next{padding:16px 28px;font-size:19px}
+#touchui{position:fixed;inset:0;z-index:12;pointer-events:none}
+#joy{position:absolute;width:150px;height:150px;margin:-75px 0 0 -75px;border-radius:50%;border:2px solid rgba(95,242,255,.45);background:rgba(95,242,255,.08);opacity:0;transition:opacity .15s}
+#joy.on{opacity:1}
+#joy i{position:absolute;left:50%;top:50%;width:62px;height:62px;margin:-31px 0 0 -31px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#dffcff,#5ff2ff 45%,#1490b8);box-shadow:0 0 20px rgba(95,242,255,.6)}
+#joyhint{position:absolute;left:max(24px,env(safe-area-inset-left));bottom:max(26px,env(safe-area-inset-bottom));font-size:13px;color:rgba(232,246,251,.7);text-shadow:0 1px 4px #000}
+.tbtn{position:absolute;pointer-events:auto;border-radius:50%;border:2px solid rgba(255,255,255,.35);color:#fff;font-weight:900;font-family:inherit;display:grid;place-items:center;text-shadow:0 1px 3px rgba(0,0,0,.5);touch-action:none}
+.tbtn.on{transform:scale(.92);filter:brightness(1.3)}
+#tb-dash{right:max(28px,env(safe-area-inset-right));bottom:max(30px,env(safe-area-inset-bottom));width:112px;height:112px;font-size:19px;color:#3a2200;text-shadow:none;background:radial-gradient(circle at 40% 35%,rgba(255,236,170,.95),rgba(255,180,60,.85))}
+#tb-roll{right:calc(max(28px,env(safe-area-inset-right)) + 128px);bottom:max(24px,env(safe-area-inset-bottom));width:86px;height:86px;font-size:15px;background:radial-gradient(circle at 40% 35%,rgba(170,240,255,.9),rgba(31,150,190,.85))}
+#tb-teacher{position:absolute;top:12px;left:50%;transform:translateX(-50%);pointer-events:auto;font-size:12px;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:rgba(0,0,0,.5);color:var(--gold)}
+#rotate{position:fixed;inset:0;z-index:90;display:none;place-items:center;text-align:center;background:#02070b;font-size:20px;line-height:1.7}
+#rotate b{font-family:'Black Han Sans';font-weight:400;font-size:34px;display:block;margin-bottom:8px}
+@media (orientation:portrait){body.touch #rotate{display:grid}}
+</style>
+<script type="importmap">
+{"imports":{
+  "three":"./vendor/three/build/three.module.js",
+  "three/addons/":"./vendor/three/examples/jsm/"
+}}
+</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="alarm"></div>
+
+<!-- 타이틀 / 로딩 -->
+<div id="screen">
+  <div class="wrap">
+    <div class="kicker">CHRONOS PROTOCOL · BIG DATA TIME SURVIVAL</div>
+    <h1 class="title">크로노스 프로토콜</h1>
+    <div class="subtitle">빅데이터 타임 서바이벌 · <b>1차시 · 고생대의 바다</b></div>
+    <div id="loading">
+      <div id="loadbar"><i></i></div>
+      <div id="loadtxt">3D 모델 불러오는 중…</div>
+    </div>
+    <div id="startbox" class="hidden">
+      <div class="namerow">
+        <input id="pname" maxlength="10" placeholder="연구원 이름 (예: 김민준)">
+        <button class="btn" id="startbtn">타임머신 연구소 입장</button>
+      </div>
+      <div class="controls">
+        <div class="panel only-touch"><b>화면 끌기</b>아무 곳이나 누르고<br>끌면 그 방향으로 헤엄</div>
+        <div class="panel only-touch"><b>돌진 버튼</b>오른쪽 아래 노란 버튼<br>(누르고 있는 동안)</div>
+        <div class="panel only-touch"><b>몸 말기 버튼</b>파란 버튼을 누르고 있으면<br>공격을 튕겨냄</div>
+        <div class="panel only-touch"><b>데이터 지도 탭</b>왼쪽 지도를 탭하면<br>변수가 바뀜</div>
+        <div class="panel only-mouse"><b>마우스</b>가리키는 방향으로 헤엄<br>(키보드 WASD·방향키도 가능)</div>
+        <div class="panel only-mouse"><b>클릭 · 스페이스</b>돌진<br>(대시 게이지 소모)</div>
+        <div class="panel only-mouse"><b>오른쪽 클릭 · E</b>몸 말기 방어<br>(공격을 튕겨냄)</div>
+        <div class="panel only-mouse"><b>M 키</b>데이터 지도의<br>변수 바꾸기</div>
+      </div>
+      <div class="linkrow"><button class="btn ghost" id="creditbtn">3D 에셋 출처</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <div id="mission" class="panel">
+    <div class="era" id="m-era">캄브리아기</div>
+    <div class="ago" id="m-ago">−510,000,000 YEARS</div>
+    <div class="obj" id="o-charge"><div class="lab">타임머신 에너지 충전 <b id="v-charge">0%</b></div><div class="bar"><i></i></div></div>
+    <div class="obj" id="o-probe"><div class="lab">관측 부표 회수 <b id="v-probe">0 / 5</b></div><div class="bar"><i></i></div></div>
+    <div class="obj" id="o-rows"><div class="lab">수집한 빅데이터 <b id="v-rows">0행</b></div></div>
+    <div class="obj hidden" id="o-home"><div class="lab"><b style="color:var(--gold)">▶ 빛기둥(타임머신)으로 귀환!</b></div></div>
+  </div>
+  <div id="log" class="panel"></div>
+  <div id="sensors" class="panel">
+    <div class="sh"><span>몸 센서 · 실시간</span><span id="s-time">00:00</span></div>
+    <div id="srows"></div>
+  </div>
+  <div id="bars" class="panel">
+    <div class="row"><span>체력</span><div class="bar" id="hpbar"><i></i></div><span id="v-hp">100</span></div>
+    <div class="row"><span>대시</span><div class="bar" id="stbar"><i></i></div><span id="v-st">100</span></div>
+    <div id="lvl">성장 단계 <b id="v-lvl">1</b> · 먹은 먹이 <b id="v-eat">0</b></div>
+  </div>
+  <div id="mapbox" class="panel">
+    <div id="maptitle"><span>데이터 지도 · <b id="map-var">수온</b></span><kbd class="only-mouse">M</kbd><kbd class="only-touch">탭</kbd></div>
+    <canvas id="minimap" width="400" height="400"></canvas>
+    <div id="mapleg"><span id="leg-lo">낮음</span><div class="ramp"></div><span id="leg-hi">높음</span></div>
+  </div>
+  <div id="chips"></div>
+  <div id="radio" class="panel"><div class="orb"></div><div class="who">ARIA · 무전</div><div id="radio-text"></div></div>
+  <div id="toast" class="panel"></div>
+  <div id="vignette"></div>
+  <div id="banner"><div class="a" id="bn-a"></div><div class="b" id="bn-b"></div><div class="c" id="bn-c"></div></div>
+  <div class="marker hidden" id="mk-probe"><div class="dot"></div><span>관측 부표</span></div>
+  <div class="marker hidden" id="mk-home"><div class="dot"></div><span>타임머신</span></div>
+</div>
+
+<!-- 대화 -->
+<div id="dialog" class="panel hidden">
+  <div class="orb"></div>
+  <div id="dlg-who">ARIA</div>
+  <div id="dlg-text"></div>
+  <div id="dlg-next"><span class="only-mouse">클릭 · 스페이스 ▶</span><span class="only-touch">화면을 탭 ▶</span></div>
+</div>
+
+<div id="warptxt" class="hidden"><div><div class="a" id="wp-a">TEMPORAL JUMP</div><div class="b" id="wp-b">−000,000,000</div></div></div>
+<div id="flash"></div>
+
+<!-- 분석실 -->
+<div id="analysis" class="modal hidden">
+  <div class="box panel">
+    <div class="mhead"><h2>빅데이터 분석실</h2><span id="an-era">캄브리아기 데이터</span></div>
+    <div class="an-grid">
+      <div>
+        <div class="ctl">
+          데이터셋 <select id="an-ds"></select>
+          가로축(X) <select id="an-x"></select>
+          세로축(Y) <select id="an-y"></select>
+        </div>
+        <canvas id="an-plot"></canvas>
+        <div id="an-stats"></div>
+        <div class="slider">사용할 데이터 수 <input type="range" id="an-n" min="5" max="100" value="100"><b id="an-nv" class="mono">0</b></div>
+        <label class="check" id="an-cleanbox"><input type="checkbox" id="an-clean"> 이상값 걸러내기 (데이터 검증하기)</label>
+      </div>
+      <div>
+        <div class="card"><h3>드론 기상 관측 · 육지의 대기 데이터</h3><div id="an-land"></div></div>
+        <div class="card"><h3 id="an-qh">예측 미션</h3><div id="an-q"></div></div>
+        <div class="card"><h3>귀환 좌표 조각</h3><div class="frag" id="an-frag"></div></div>
+      </div>
+    </div>
+    <div class="mfoot"><button class="btn hidden" id="an-next">다음 시대로 점프 ▶</button></div>
+  </div>
+</div>
+
+<!-- 엔딩 -->
+<div id="ending" class="modal hidden">
+  <div class="box panel">
+    <div class="kicker">MISSION REPORT</div>
+    <h2 style="font-family:'Black Han Sans';font-weight:400;font-size:36px;margin:6px 0 0">귀환 성공 · 연구 보고서</h2>
+    <div class="stats" id="end-stats"></div>
+    <div class="cols">
+      <div class="card">
+        <h3>오늘의 개념 · 빅데이터란?</h3>
+        <p><b>기존의 데이터 관리 및 처리 도구로는 다루기 어려울 만큼 방대한 양의 데이터</b>를 빅데이터라고 해요. 삼엽충 센서는 0.5초마다 10가지 변수를 기록했고, 부표 데이터까지 합치니 사람이 표로 하나하나 보기 힘든 양이 되었죠. 그래서 그래프·상관계수·추세선 같은 <b>분석 도구</b>가 필요했어요.</p>
+      </div>
+      <div class="card">
+        <h3>교과서 속 빅데이터 활용 4가지</h3>
+        <ul>
+          <li><span class="tag now">오늘</span><b>과학 실험</b> · 부표 관측 데이터로 직접 실험하기 어려운 고생대 바다를 분석</li>
+          <li><span class="tag now">오늘</span><b>기상 관측</b> · 드론이 모은 대기 산소·이산화탄소·오존층 데이터로 기후 변화 파악</li>
+          <li><span class="tag next">2차시</span><b>유전체 분석</b> · 개인에게 발생 가능한 질병 예측</li>
+          <li><span class="tag next">2차시</span><b>신약 개발</b> · 질병 치료 물질을 빠르게 찾기</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>빅데이터의 문제점도 기억해요</h3>
+        <ul>
+          <li><b>충분히 검증되지 못한 데이터</b> · 타임머신 좌표 오류, 고장 난 부표의 이상값</li>
+          <li><b>지나친 데이터 의존</b> · 데이터가 적을 때 그린 추세선은 쉽게 틀렸어요</li>
+          <li><b>사생활 침해 가능성</b> · 유전체처럼 민감한 데이터는 어떻게 지켜야 할까? (2차시)</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>과거의 데이터가 현재를 돕는다</h3>
+        <p>페름기 말에는 화산 활동으로 <b>CO₂가 급증 → 지구 온난화 → 해양 무산소·산성화</b>가 일어나 해양 생물 대부분이 사라졌어요. 이런 지질 시대의 빅데이터는 오늘날 기후 변화 예측 모델을 검증하는 데 쓰여요.</p>
+      </div>
+    </div>
+    <div class="teaser">
+      <div class="a">INCOMING SIGNAL · FUTURE</div>
+      <div class="b">2차시 · 미래 편 「바이러스 X」</div>
+      <div style="color:#f3d6e2">미래에서 온 구조 요청. 유전체 빅데이터를 분석해 치료제를 찾아라!</div>
+    </div>
+    <div class="mfoot" style="gap:10px"><button class="btn ghost" id="end-credit">3D 에셋 출처</button><button class="btn" id="end-restart">처음부터 다시</button></div>
+  </div>
+</div>
+
+<!-- 출처 -->
+<div id="credits" class="modal hidden">
+  <div class="box panel">
+    <h2 style="font-family:'Black Han Sans';font-weight:400;margin:0 0 10px">3D 에셋 출처</h2>
+    <div>Sketchfab (CC BY 4.0 — 출처 표시)</div>
+    <ul>
+      <li>Anomalocaris 3D Model — skache</li>
+      <li>Dinoraul's Dunkleosteus 1 — SammyTheCitipati</li>
+      <li>Hsw Buzz (Helicoprion) — hsejira</li>
+      <li>Sci-fi lab — a_wilczek</li>
+      <li>Rainbow Haven Reef - coral — CMBC</li>
+    </ul>
+    <div>Sketchfab (Standard License)</div>
+    <ul>
+      <li>Trilobite Proetida — paleobiome</li>
+      <li>Time Machine — vertexmonster</li>
+    </ul>
+    <div>Poly Haven (CC0) — Boulder 01 (Rico Cilliers), Coast Sand 01 텍스처 (Rob Tuytel)</div>
+    <div class="note">지질 시대의 수치(대기 산소·CO₂·기온 등)는 지질 기록 기반 모형의 대략적 추정치이며, 게임 속 바다 데이터는 수업용 시뮬레이션입니다.</div>
+    <div class="mfoot"><button class="btn" id="credit-close">닫기</button></div>
+  </div>
+</div>
+
+<!-- 패드 터치 조작 -->
+<div id="touchui" class="hidden">
+  <div id="joy"><i></i></div>
+  <div id="joyhint">화면을 누르고 끌어서 헤엄치기</div>
+  <button class="tbtn" id="tb-roll">몸 말기</button>
+  <button class="tbtn" id="tb-dash">돌진</button>
+  <button id="tb-teacher" class="hidden">교사용 · 미션 완료</button>
+</div>
+<div id="rotate"><div><b>패드를 가로로 돌려 주세요</b>이 게임은 가로 화면에서 플레이해요.</div></div>
+
+<script type="module" src="game.js"></script>
+</body>
+</html>
